@@ -5,10 +5,10 @@
 
 ## 交付物
 
-- 安装并运行：`/Applications/ScreenRecall.app`。
-- 本机试用安装包：`dist/ScreenRecall-0.6.4-local-preview.dmg`，SHA-256：`d87ffdde6153c042a837c14e742f0eaf590e2f12ff46002e5b2e9ca2868f806e`。
-- `dist/ScreenRecall.app` 与安装包内应用是同一构建；`dist/试用说明.txt` 随包提供。旧 0.6.3 安装包和旧应用副本已清理。
-- 使用本机 Apple Development 证书签名，Hardened Runtime 开启；严格签名与 DMG 校验通过。此包未做 Developer ID 公证，仅供本机试用。
+- 安装并运行：`/Applications/ScreenRecall.app`（本机 Apple Development 签名，TCC 权限稳定，**仅本机自用**）。
+- 对外试用安装包：`dist/ScreenRecall-0.6.4-local-preview.dmg`，**ad-hoc 匿名签名**（不含开发者身份），SHA-256：`a77466070914e0ac96565bc6df2b7329edffb8a3be8bcaa95530fd509322fb72`。
+- `dist/试用说明.txt` 随包提供。
+- ⚠️ 签名、脱敏与发版规范见 **`AGENTS.md`**：对外分发一律用 `zsh Tools/package-release.sh <version>` 产出匿名包，**不得**上传带 Apple Development 签名的产物。本 DMG 已按此规则重打（旧版带开发者签名的包已弃用）。
 
 ## 本次更新
 
