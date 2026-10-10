@@ -514,6 +514,7 @@ enum StorageTests {
         catch StorageError.injected(.afterMove) {
             fflush(stdout)
             kill(getpid(), SIGKILL)
+            sleep(1)
             exit(3)
         }
         throw TestFailure.assertion("crash checkpoint was not reached")

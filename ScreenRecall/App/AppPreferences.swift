@@ -6,6 +6,7 @@ struct AppPreferences {
     private static let exclusionsKey = "excludedBundleIDs.v1"
     private static let retentionHoursKey = "retentionHours.v1"
     private static let maximumGiBKey = "maximumGiB.v1"
+    private static let intervalSecondsKey = "intervalSeconds.v1"
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
@@ -20,13 +21,27 @@ struct AppPreferences {
     }
 
     var retentionHours: Int {
-        get { [6, 12, 24, 48].contains(defaults.integer(forKey: Self.retentionHoursKey)) ? defaults.integer(forKey: Self.retentionHoursKey) : 24 }
+        get {
+            let val = defaults.integer(forKey: Self.retentionHoursKey)
+            return [6, 12, 24, 48, 72, 168].contains(val) ? val : 24
+        }
         set { defaults.set(newValue, forKey: Self.retentionHoursKey) }
     }
 
     var maximumGiB: Int {
-        get { [1, 2, 4].contains(defaults.integer(forKey: Self.maximumGiBKey)) ? defaults.integer(forKey: Self.maximumGiBKey) : 2 }
+        get {
+            let val = defaults.integer(forKey: Self.maximumGiBKey)
+            return [1, 2, 4, 8, 16, 32].contains(val) ? val : 2
+        }
         set { defaults.set(newValue, forKey: Self.maximumGiBKey) }
+    }
+
+    var intervalSeconds: Int {
+        get {
+            let val = defaults.integer(forKey: Self.intervalSecondsKey)
+            return [15, 30, 45, 60, 120, 300].contains(val) ? val : 45
+        }
+        set { defaults.set(newValue, forKey: Self.intervalSecondsKey) }
     }
 
     static func parseBundleIDs(_ text: String) -> Set<String>? {

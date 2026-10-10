@@ -129,6 +129,10 @@ actor CaptureCoordinator {
         }
     }
 
+    func updateCaptureInterval(_ seconds: Int) async {
+        await scheduler.updateInterval(seconds: seconds)
+    }
+
     func suspendForSystem(_ reason: String) async {
         guard systemPauseReasons.insert(reason).inserted else { return }
         captureGeneration &+= 1

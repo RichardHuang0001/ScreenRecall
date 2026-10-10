@@ -158,8 +158,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let provider = MacScreenCaptureProvider(root: paths.staging)
             persistentSink = sink
             captureProvider = provider
+            let scheduler = CaptureScheduler(intervalSeconds: preferences.intervalSeconds)
             let coordinator = CaptureCoordinator(provider: provider, sink: sink,
-                                                 scheduler: CaptureScheduler(), permission: MacCapturePermission()) { [weak self] snapshot in
+                                                 scheduler: scheduler, permission: MacCapturePermission()) { [weak self] snapshot in
                 Task { @MainActor in self?.updateStatus(snapshot) }
             }
             self.coordinator = coordinator
@@ -208,7 +209,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         currentState = snapshot.state
         currentStateDescription = stateDescription
         historyController?.controls.update(state: snapshot.state, description: stateDescription,
-            lastBatch: snapshot.lastBatch.map { "最近批次 \(batchStatusText($0.status)) · \($0.outcomes.filter(\.succeeded).count)/\($0.expectedCount) 屏" })
+            lastBatch: snapshot.lastBatch.map { "最近批次 \(batchStatusText($0.status)) · \($0.outcomes.filter(\.succeeded).count)/\($0.expectedCount) 屏" },
+            intervalSeconds: preferences.intervalSeconds)
         if snapshot.completedBatches != lastMaintainedBatchCount && snapshot.state != .capturing {
             lastMaintainedBatchCount = snapshot.completedBatches
             runMaintenanceIfNeeded()
@@ -241,13 +243,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if historyController == nil {
             let settings = HistorySettings(excludedBundleIDs: preferences.excludedBundleIDs,
                 retentionHours: preferences.retentionHours, maximumGiB: preferences.maximumGiB,
+                intervalSeconds: preferences.intervalSeconds,
                 loginAtStart: SMAppService.mainApp.status == .enabled)
             let actions = HistoryActions(
                 start: { [weak self] in self?.startCapture() },
                 pause: { [weak self] in self?.pauseCapture() },
                 resume: { [weak self] in self?.resumeCapture() },
                 captureNow: { [weak self] in self?.manualCapture() },
-                saveSettings: { [weak self] ids, hours, gib in self?.saveSettings(ids: ids, hours: hours, gib: gib) },
+                saveSettings: { [weak self] ids, hours, gib, interval in self?.saveSettings(ids: ids, hours: hours, gib: gib, interval: interval) },
                 setLoginAtStart: { [weak self] enabled in self?.setLoginAtStart(enabled) ?? false },
                 clearHistory: { [weak self] in self?.clearHistory() },
                 openDataFolder: { [weak self] in self?.openDataFolder() },
@@ -256,7 +259,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             historyController = HistoryWindowController(sink: sink, settings: settings, actions: actions) { [weak self] in
                 self?.historyController = nil
             }
-            historyController?.controls.update(state: currentState, description: currentStateDescription, lastBatch: nil)
+            historyController?.controls.update(state: currentState, description: currentStateDescription,
+                lastBatch: nil, intervalSeconds: preferences.intervalSeconds)
         }
         NSApplication.shared.activate(ignoringOtherApps: true)
         historyController?.window?.deminiaturize(nil)
@@ -355,7 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc private func manualCapture() { Task { await coordinator?.requestCapture(.manual) } }
 
-    private func saveSettings(ids: Set<String>, hours: Int, gib: Int) {
+    private func saveSettings(ids: Set<String>, hours: Int, gib: Int, interval: Int) {
         let changedAt = Date()
         preferences.excludedBundleIDs = ids
         pendingPrivacyExclusions = ids
@@ -383,7 +387,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         preferences.retentionHours = hours
         preferences.maximumGiB = gib
+        preferences.intervalSeconds = interval
         Task {
+            await coordinator?.updateCaptureInterval(interval)
             await persistentSink?.updateRetentionPolicy(.configured(hours: hours, maximumGiB: gib))
             try? await persistentSink?.enforceRetentionCooperatively(now: Date())
         }
