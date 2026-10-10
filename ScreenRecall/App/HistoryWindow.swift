@@ -70,6 +70,22 @@ final class HistoryViewModel: ObservableObject {
         if requestGeneration == generation { isLoading = false }
     }
 
+    /// Called only when a capture finishes while the window is open; no polling timer.
+    func refreshLatest() async {
+        guard !isLoading else { return }
+        let requestGeneration = generation
+        do {
+            let recent = try await sink.history(limit: 10)
+            guard requestGeneration == generation else { return }
+            let known = Set(batches.map(\.id))
+            let added = recent.filter { !known.contains($0.id) }
+            if !added.isEmpty {
+                batches.insert(contentsOf: added, at: 0)
+                storageBytes = try await sink.status().totalBytes
+            }
+        } catch { /* Explicit refresh remains available in the header. */ }
+    }
+
     func clearForClose() {
         generation += 1
         batches = []
@@ -77,27 +93,99 @@ final class HistoryViewModel: ObservableObject {
     }
 }
 
+struct HistorySettings {
+    let excludedBundleIDs: Set<String>
+    let retentionHours: Int
+    let maximumGiB: Int
+    let loginAtStart: Bool
+}
+
+struct HistoryActions {
+    let start: () -> Void
+    let pause: () -> Void
+    let resume: () -> Void
+    let captureNow: () -> Void
+    let saveSettings: (Set<String>, Int, Int) -> Void
+    let setLoginAtStart: (Bool) -> Bool
+    let clearHistory: () -> Void
+    let openDataFolder: () -> Void
+    let runProbe: () -> Void
+    let quit: () -> Void
+
+    @MainActor static let preview = HistoryActions(start: {}, pause: {}, resume: {}, captureNow: {},
+        saveSettings: { _, _, _ in }, setLoginAtStart: { $0 }, clearHistory: {},
+        openDataFolder: {}, runProbe: {}, quit: {})
+}
+
+@MainActor
+final class HistoryControls: ObservableObject {
+    @Published private(set) var state: CaptureState = .idle
+    @Published private(set) var description = "未启动"
+    @Published private(set) var lastBatch: String?
+
+    func update(state: CaptureState, description: String, lastBatch: String?) {
+        self.state = state
+        self.description = description
+        self.lastBatch = lastBatch
+    }
+}
+
 @MainActor
 final class HistoryWindowController: NSWindowController, NSWindowDelegate {
     let model: HistoryViewModel
+    let controls = HistoryControls()
     var onClose: (() -> Void)?
 
-    init(sink: PersistentCaptureSink, onClose: @escaping () -> Void) {
+    init(sink: PersistentCaptureSink, settings: HistorySettings, actions: HistoryActions,
+         onClose: @escaping () -> Void) {
         model = HistoryViewModel(sink: sink)
         self.onClose = onClose
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 730),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
-        window.title = "ScreenRecall 历史"
+        window.title = "ScreenRecall"
         window.minSize = NSSize(width: 760, height: 500)
         window.center()
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: HistoryView(model: model))
+        window.contentView = NSHostingView(rootView: HistoryView(model: model, controls: controls,
+                                                                settings: settings, actions: actions))
         super.init(window: window)
         window.delegate = self
     }
 
     required init?(coder: NSCoder) { nil }
+
+    /// Explicit validation hook; never runs during normal background capture.
+    func saveSnapshot(to url: URL) throws {
+        guard let view = window?.contentView else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try Self.render(view, to: url)
+    }
+
+    func saveSettingsSnapshot(to url: URL) throws {
+        let preview = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 640),
+                               styleMask: [.titled], backing: .buffered, defer: false)
+        preview.contentView = NSHostingView(rootView: SettingsView(
+            settings: HistorySettings(excludedBundleIDs: ["com.apple.Safari"], retentionHours: 24,
+                                      maximumGiB: 2, loginAtStart: false), actions: .preview) { _ in })
+        preview.orderFront(nil)
+        defer { preview.close() }
+        guard let view = preview.contentView else { throw CocoaError(.fileWriteUnknown) }
+        try Self.render(view, to: url)
+    }
+
+    private static func render(_ view: NSView, to url: URL) throws {
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        view.layoutSubtreeIfNeeded()
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let data = bitmap.representation(using: .png, properties: [:]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try data.write(to: url, options: .atomic)
+    }
 
     func windowWillClose(_ notification: Notification) {
         model.clearForClose()
@@ -115,29 +203,66 @@ private struct SelectedHistoryAsset: Identifiable {
 
 private struct HistoryView: View {
     @ObservedObject var model: HistoryViewModel
+    @ObservedObject var controls: HistoryControls
+    let actions: HistoryActions
+    @State private var currentSettings: HistorySettings
     @State private var selectedDate = Date()
     @State private var selection: SelectedHistoryAsset?
+    @State private var showingSettings = false
+
+    init(model: HistoryViewModel, controls: HistoryControls, settings: HistorySettings, actions: HistoryActions) {
+        self.model = model
+        self.controls = controls
+        self.actions = actions
+        _currentSettings = State(initialValue: settings)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Text("屏幕历史").font(.title2).bold()
+            HStack(spacing: 14) {
+                Image(systemName: "rectangle.on.rectangle.angled")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(.tint, in: RoundedRectangle(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("屏幕历史").font(.title2.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Circle().fill(statusColor).frame(width: 7, height: 7)
+                        Text(controls.description)
+                        Text("· 每 45 秒记录")
+                        if let lastBatch = controls.lastBatch { Text("· \(lastBatch)") }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Text("占用 \(ByteCountFormatter.string(fromByteCount: model.storageBytes, countStyle: .file))")
-                    .foregroundStyle(.secondary)
-                Button("刷新") { Task { await model.reload() } }
+                Button { actions.captureNow() } label: { Label("立即记录", systemImage: "camera") }
+                    .disabled(controls.state != .ready)
+                Button(primaryActionTitle) { performPrimaryAction() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.accentColor)
+                    .disabled(controls.state == .capturing || controls.state == .pausedBySystem)
+                Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                    .help("设置")
+                    .accessibilityLabel("打开设置")
             }
-            .padding(.horizontal, 20).padding(.vertical, 12)
+            .padding(.horizontal, 22).padding(.vertical, 18)
+            .background(.regularMaterial)
+            Divider()
             HStack(spacing: 8) {
-                Text("定位至")
+                Text("时间线").font(.headline)
+                Spacer()
+                Text("已使用 \(ByteCountFormatter.string(fromByteCount: model.storageBytes, countStyle: .file))")
+                    .foregroundStyle(.secondary)
+                Divider().frame(height: 18)
+                Text("定位至").foregroundStyle(.secondary)
                 DatePicker("时间", selection: $selectedDate, displayedComponents: [.date, .hourAndMinute])
                     .labelsHidden().frame(maxWidth: 250)
                 Button("此前记录") { Task { await model.reload(before: selectedDate) } }
                 Button("最新") { Task { await model.reload() } }
-                Spacer()
-                Text("每次加载 50 个时间节点").foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 20).padding(.bottom, 12)
+            .controlSize(.small)
+            .padding(.horizontal, 22).padding(.vertical, 12)
             Divider()
             ScrollView {
                 LazyVStack(spacing: 12) {
@@ -159,12 +284,168 @@ private struct HistoryView: View {
                 }
                 .padding(16)
             }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
+        .background(Color(nsColor: .windowBackgroundColor))
         .task { await model.reload() }
         .sheet(item: $selection) { selected in
             HistoryPreview(asset: selected, sink: model.sink, loader: model.loader)
                 .frame(minWidth: 760, minHeight: 540)
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(settings: currentSettings, actions: actions) { currentSettings = $0 }
+        }
+    }
+
+    private var statusColor: Color {
+        switch controls.state {
+        case .ready, .capturing: .green
+        case .pausedByUser, .pausedBySystem, .idle: .orange
+        default: .red
+        }
+    }
+
+    private var primaryActionTitle: String {
+        switch controls.state {
+        case .ready, .capturing: "暂停记录"
+        case .pausedByUser: "继续记录"
+        default: "启用记录"
+        }
+    }
+
+    private func performPrimaryAction() {
+        switch controls.state {
+        case .ready, .capturing: actions.pause()
+        case .pausedByUser: actions.resume()
+        default: actions.start()
+        }
+    }
+}
+
+private struct SettingsView: View {
+    let settings: HistorySettings
+    let actions: HistoryActions
+    let onUpdate: (HistorySettings) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var excludedIDs: String
+    @State private var retentionHours: Int
+    @State private var maximumGiB: Int
+    @State private var loginAtStart: Bool
+    @State private var errorMessage: String?
+
+    init(settings: HistorySettings, actions: HistoryActions,
+         onUpdate: @escaping (HistorySettings) -> Void) {
+        self.settings = settings
+        self.actions = actions
+        self.onUpdate = onUpdate
+        _excludedIDs = State(initialValue: settings.excludedBundleIDs.sorted().joined(separator: "\n"))
+        _retentionHours = State(initialValue: settings.retentionHours)
+        _maximumGiB = State(initialValue: settings.maximumGiB)
+        _loginAtStart = State(initialValue: settings.loginAtStart)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("设置").font(.title2.weight(.semibold))
+                    Text("调整记录范围与本地保留方式").font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("完成") { saveAndClose() }.buttonStyle(.borderedProminent)
+                    .tint(Color.accentColor)
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(24)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    settingsSection("采集", icon: "camera.viewfinder") {
+                        HStack {
+                            Text("自动记录间隔")
+                            Spacer()
+                            Text("45 秒").foregroundStyle(.secondary)
+                        }
+                        Text("应用仅在定时触发时采集；关闭历史窗口不会暂停记录。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    settingsSection("隐私", icon: "hand.raised") {
+                        Text("排除的应用 Bundle ID")
+                        TextEditor(text: $excludedIDs)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(height: 72)
+                            .padding(6)
+                            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                        Text("每行填写一个，例如 com.apple.Safari；更改从下一批开始生效。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    settingsSection("本地存储", icon: "externaldrive") {
+                        Picker("最长保留", selection: $retentionHours) {
+                            ForEach([6, 12, 24, 48], id: \.self) { Text("\($0) 小时").tag($0) }
+                        }
+                        Picker("容量上限", selection: $maximumGiB) {
+                            ForEach([1, 2, 4], id: \.self) { Text("\($0) GiB").tag($0) }
+                        }
+                        Text("先达到的限制先执行；缩短限制后会在后台分批清理。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    settingsSection("系统与数据", icon: "gearshape") {
+                        Toggle("登录后启动 ScreenRecall", isOn: $loginAtStart)
+                            .onChange(of: loginAtStart) { _, enabled in
+                                let actual = actions.setLoginAtStart(enabled)
+                                if actual != enabled { loginAtStart = actual }
+                                onUpdate(HistorySettings(excludedBundleIDs: settings.excludedBundleIDs,
+                                    retentionHours: settings.retentionHours, maximumGiB: settings.maximumGiB,
+                                    loginAtStart: actual))
+                            }
+                        HStack(spacing: 10) {
+                            Button("打开数据目录") { actions.openDataFolder() }
+                            Button("平台验证…") { actions.runProbe() }
+                            Spacer()
+                            Button("清空全部历史…", role: .destructive) {
+                                dismiss()
+                                DispatchQueue.main.async { actions.clearHistory() }
+                            }
+                        }
+                    }
+                    HStack {
+                        Button("退出 ScreenRecall") { actions.quit() }
+                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+                .padding(24)
+            }
+            if let errorMessage {
+                Text(errorMessage).font(.caption).foregroundStyle(.red)
+                    .padding(.horizontal, 24).padding(.bottom, 12)
+            }
+        }
+        .frame(width: 540, height: 640)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    @ViewBuilder
+    private func settingsSection<Content: View>(_ title: String, icon: String,
+                                                 @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: icon).font(.headline)
+            VStack(alignment: .leading, spacing: 10) { content() }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.22), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func saveAndClose() {
+        guard let ids = AppPreferences.parseBundleIDs(excludedIDs) else {
+            errorMessage = "Bundle ID 格式无效，请逐行填写，例如 com.apple.Safari。"
+            return
+        }
+        actions.saveSettings(ids, retentionHours, maximumGiB)
+        onUpdate(HistorySettings(excludedBundleIDs: ids, retentionHours: retentionHours,
+                                 maximumGiB: maximumGiB, loginAtStart: loginAtStart))
+        dismiss()
     }
 }
 
@@ -202,7 +483,8 @@ private struct HistoryBatchCard: View {
             }
         }
         .padding(12)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary.opacity(0.5)))
         .task(id: batch.id) {
             do {
                 let loaded = try await sink.frames(batchID: batch.id)

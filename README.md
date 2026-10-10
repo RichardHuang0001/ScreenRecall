@@ -1,6 +1,6 @@
 # ScreenRecall
 
-macOS 原生轻量屏幕历史工具。目前已实现 **Phase 0–5**：平台验证、核心采集、持久化与崩溃恢复、权限及系统保护、历史与设置界面、性能优化。正式菜单栏路径将截图保存在本机私有目录；首次启动默认关闭，须用户主动启用。版本 0.6.1 为本机试用版，阶段 6 的长期发布验收尚未完成。
+macOS 原生轻量屏幕历史工具。目前已实现 **Phase 0–5**：平台验证、核心采集、持久化与崩溃恢复、权限及系统保护、历史与设置界面、性能优化。正式路径将截图保存在本机私有目录；首次启动默认关闭，须用户主动启用。版本 0.6.3 为本机试用版，阶段 6 的长期发布验收尚未完成。
 
 ## 打开与构建
 
@@ -12,15 +12,15 @@ xcodebuild -project ScreenRecall.xcodeproj -scheme ScreenRecall -configuration D
 
 当前项目使用 macOS 15.0 部署目标、arm64、Swift 5 语言模式和完整并发检查。Bundle ID 为 `com.screenrecall.app`。本机开发签名或后续正式签名可在 Xcode 的 Signing & Capabilities 中配置；Phase 0 构建测试使用了 `CODE_SIGNING_ALLOWED=NO`，并为运行探针的 Debug 应用单独使用本机 Apple Development 证书签名。
 
-本机试用包在 `dist/`：可直接打开 `ScreenRecall.app`，或从 `ScreenRecall-0.6.1-local-preview.dmg` 拖入“应用程序”。使用本机 Apple Development 证书签名，未做 Developer ID 公证，不适合公开分发。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
+本机试用包在 `dist/`：可直接打开 `ScreenRecall.app`，或从 `ScreenRecall-0.6.3-local-preview.dmg` 拖入“应用程序”。使用本机 Apple Development 证书签名，未做 Developer ID 公证，不适合公开分发。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
 
 ## 当前使用方式
 
-普通启动显示一个固定宽度的菜单栏图标，悬停可看状态，点击展开菜单；第一次不会自动截屏。可先在“设置”中排除应用 Bundle ID、选择保留时间与容量，再选择“启用屏幕历史…”阅读本地保存说明并授予屏幕录制权限。开启后每 45 秒逐屏截图，可暂停、继续、立即截图或清空全部历史。“查看历史…”打开按时间分页的双屏时间轴；点击缩略图可预览，复制原图、导出或在 Finder 中显示。开机启动由用户单独选择；系统睡眠、会话不可采集、严重内存或热压力会暂停新批次。
+普通启动显示一个固定宽度的菜单栏图标，悬停可看状态，点击直接打开屏幕历史窗口；第一次不会自动截屏。窗口顶部可启用、暂停、继续或立即记录，齿轮按钮打开二级设置页，管理排除应用 Bundle ID、保留时间与容量、登录后启动、本地数据和诊断。启用后每 45 秒逐屏截图。“屏幕历史”按时间分页加载；点击缩略图可预览，复制原图、导出或在 Finder 中显示。系统睡眠、会话不可采集、严重内存或热压力会暂停新批次。窗口关闭后，已启用的后台采集仍继续。
 
 ## 验证入口
 
-选择“运行一次平台验证…”可重复阶段 0 的 JPEG/HEIC 对照探针。为自动测量，可编译 `Validation/ProbeCLI.swift` 与 `ScreenRecall/Validation/PlatformProbe.swift` 为一次性命令行程序。它调用相同的探针实现；见 `PLATFORM_VALIDATION.md`。
+设置页中的“平台验证…”可重复阶段 0 的 JPEG/HEIC 对照探针。为自动测量，可编译 `Validation/ProbeCLI.swift` 与 `ScreenRecall/Validation/PlatformProbe.swift` 为一次性命令行程序。它调用相同的探针实现；见 `PLATFORM_VALIDATION.md`。
 
 阶段 1 自动测试：`zsh Validation/run-engine-tests.sh`。测试结果与真实 30 秒采集记录见 `PHASE1_VALIDATION.md`。
 

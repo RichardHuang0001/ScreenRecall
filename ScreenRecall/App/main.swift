@@ -67,7 +67,7 @@ private enum StatusBarIcon {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var coordinator: CaptureCoordinator?
     private var persistentSink: PersistentCaptureSink?
@@ -80,14 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var maintenanceAllowed = true
     private var maintenanceTask: Task<Void, Never>?
     private var lastMaintainedBatchCount = -1
-    private var stateLine: NSMenuItem?
-    private var startItem: NSMenuItem?
-    private var pauseItem: NSMenuItem?
-    private var resumeItem: NSMenuItem?
-    private var manualItem: NSMenuItem?
-    private var latestSuccessItem: NSMenuItem?
-    private var storageItem: NSMenuItem?
-    private var lastErrorItem: NSMenuItem?
+    private var currentState: CaptureState = .idle
+    private var currentStateDescription = "未启动"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--headless-probe") {
@@ -129,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             runPhase4Smoke(openWindow: true)
             return
         }
+        if CommandLine.arguments.contains("--ui-snapshot") {
+            runPhase4Smoke(openWindow: true, takeSnapshot: true)
+            return
+        }
         if CommandLine.arguments.contains("--phase5-benchmark") {
             guard CGPreflightScreenCaptureAccess() else {
                 fputs("Screen recording permission is not granted to this app.\n", stderr)
@@ -148,74 +146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem = item
         updateStatusIcon(.idle, description: "未启动")
-        let menu = NSMenu()
-        menu.delegate = self
-        let stateLine = NSMenuItem(title: "状态：未启动", action: nil, keyEquivalent: "")
-        stateLine.isEnabled = false
-        menu.addItem(stateLine)
-        self.stateLine = stateLine
-        let latest = NSMenuItem(title: "最近成功：暂无", action: nil, keyEquivalent: "")
-        latest.isEnabled = false
-        menu.addItem(latest)
-        latestSuccessItem = latest
-        let storage = NSMenuItem(title: "存储占用：计算中", action: nil, keyEquivalent: "")
-        storage.isEnabled = false
-        menu.addItem(storage)
-        storageItem = storage
-        let error = NSMenuItem(title: "最近异常：无", action: nil, keyEquivalent: "")
-        error.isEnabled = false
-        menu.addItem(error)
-        lastErrorItem = error
-        menu.addItem(.separator())
-        let start = NSMenuItem(title: "启用屏幕历史…", action: #selector(startCapture), keyEquivalent: "")
-        start.target = self
-        menu.addItem(start)
-        startItem = start
-        let pause = NSMenuItem(title: "暂停", action: #selector(pauseCapture), keyEquivalent: "")
-        pause.target = self
-        menu.addItem(pause)
-        pauseItem = pause
-        let resume = NSMenuItem(title: "继续", action: #selector(resumeCapture), keyEquivalent: "")
-        resume.target = self
-        menu.addItem(resume)
-        resumeItem = resume
-        let manual = NSMenuItem(title: "立即截图", action: #selector(manualCapture), keyEquivalent: "")
-        manual.target = self
-        menu.addItem(manual)
-        manualItem = manual
-        menu.addItem(.separator())
-        let history = NSMenuItem(title: "查看历史…", action: #selector(openHistory), keyEquivalent: "")
-        history.target = self
-        menu.addItem(history)
-        let settings = NSMenuItem(title: "设置", action: nil, keyEquivalent: "")
-        let settingsMenu = NSMenu()
-        let exclusions = NSMenuItem(title: "设置排除的应用…", action: #selector(configureExclusions), keyEquivalent: "")
-        exclusions.target = self
-        settingsMenu.addItem(exclusions)
-        let retention = NSMenuItem(title: "保留时间与容量…", action: #selector(configureRetention), keyEquivalent: "")
-        retention.target = self
-        settingsMenu.addItem(retention)
-        let login = NSMenuItem(title: "开机登录后启动", action: #selector(toggleLoginItem), keyEquivalent: "")
-        login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        settingsMenu.addItem(login)
-        settings.submenu = settingsMenu
-        menu.addItem(settings)
-        let clear = NSMenuItem(title: "清空全部历史…", action: #selector(clearHistory), keyEquivalent: "")
-        clear.target = self
-        menu.addItem(clear)
-        let folder = NSMenuItem(title: "打开数据目录", action: #selector(openDataFolder), keyEquivalent: "")
-        folder.target = self
-        menu.addItem(folder)
-        menu.addItem(.separator())
-        let probe = NSMenuItem(title: "运行一次平台验证…", action: #selector(runProbe), keyEquivalent: "")
-        probe.target = self
-        menu.addItem(probe)
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-        item.menu = menu
+        item.button?.target = self
+        item.button?.action = #selector(openHistory)
         do {
             let paths = try StoragePaths()
             let sink = try PersistentCaptureSink(paths: paths,
@@ -242,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 } catch { showResult("历史数据初始化失败：\(error.localizedDescription)") }
             }
         } catch {
-            stateLine.title = "状态：存储不可用"
+            currentState = .storageUnavailable
+            currentStateDescription = "存储不可用"
             updateStatusIcon(.storageUnavailable, description: "存储不可用")
             showResult("无法打开历史数据目录：\(error.localizedDescription)")
         }
@@ -269,20 +202,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .error: stateDescription = "出错"
         }
         updateStatusIcon(snapshot.state, description: stateDescription)
-        let last = snapshot.lastBatch.map {
-            "；最近批次 \(batchStatusText($0.status))（\($0.outcomes.filter(\.succeeded).count)/\($0.expectedCount)）"
-        } ?? ""
-        stateLine?.title = "状态：\(stateDescription)\(last)"
-        if let message = snapshot.lastBatch?.errorSummary, !message.isEmpty {
-            lastErrorItem?.title = "最近异常：\(String(message.prefix(72)))"
-        }
-        startItem?.isEnabled = snapshot.state == .idle || snapshot.state == .awaitingPermission || snapshot.state == .storageUnavailable
-        pauseItem?.isEnabled = snapshot.state == .ready || snapshot.state == .capturing
-        resumeItem?.isEnabled = snapshot.state == .pausedByUser
-        manualItem?.isEnabled = snapshot.state == .ready
+        currentState = snapshot.state
+        currentStateDescription = stateDescription
+        historyController?.controls.update(state: snapshot.state, description: stateDescription,
+            lastBatch: snapshot.lastBatch.map { "最近批次 \(batchStatusText($0.status)) · \($0.outcomes.filter(\.succeeded).count)/\($0.expectedCount) 屏" })
         if snapshot.completedBatches != lastMaintainedBatchCount && snapshot.state != .capturing {
             lastMaintainedBatchCount = snapshot.completedBatches
             runMaintenanceIfNeeded()
+            if historyController != nil { Task { await historyController?.model.refreshLatest() } }
         }
     }
 
@@ -306,42 +233,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
-        guard let sink = persistentSink else { return }
-        Task {
-            do {
-                let status = try await sink.status()
-                storageItem?.title = "存储占用：\(ByteCountFormatter.string(fromByteCount: status.totalBytes, countStyle: .file))"
-                let date = try await sink.latestSuccessfulDate()
-                latestSuccessItem?.title = date.map { "最近成功：\($0.formatted(date: .abbreviated, time: .standard))" } ?? "最近成功：暂无"
-                await coordinator?.recheckPermission()
-            } catch { storageItem?.title = "存储占用：无法读取" }
-        }
-    }
-
     @objc private func openHistory() {
         guard let sink = persistentSink else { showResult("历史数据不可用"); return }
         if historyController == nil {
-            historyController = HistoryWindowController(sink: sink) { [weak self] in self?.historyController = nil }
+            let settings = HistorySettings(excludedBundleIDs: preferences.excludedBundleIDs,
+                retentionHours: preferences.retentionHours, maximumGiB: preferences.maximumGiB,
+                loginAtStart: SMAppService.mainApp.status == .enabled)
+            let actions = HistoryActions(
+                start: { [weak self] in self?.startCapture() },
+                pause: { [weak self] in self?.pauseCapture() },
+                resume: { [weak self] in self?.resumeCapture() },
+                captureNow: { [weak self] in self?.manualCapture() },
+                saveSettings: { [weak self] ids, hours, gib in self?.saveSettings(ids: ids, hours: hours, gib: gib) },
+                setLoginAtStart: { [weak self] enabled in self?.setLoginAtStart(enabled) ?? false },
+                clearHistory: { [weak self] in self?.clearHistory() },
+                openDataFolder: { [weak self] in self?.openDataFolder() },
+                runProbe: { [weak self] in self?.runProbe() },
+                quit: { [weak self] in self?.quitApp() })
+            historyController = HistoryWindowController(sink: sink, settings: settings, actions: actions) { [weak self] in
+                self?.historyController = nil
+            }
+            historyController?.controls.update(state: currentState, description: currentStateDescription, lastBatch: nil)
         }
         NSApplication.shared.activate(ignoringOtherApps: true)
+        historyController?.window?.deminiaturize(nil)
         historyController?.showWindow(nil)
         historyController?.window?.makeKeyAndOrderFront(nil)
     }
 
-    private func runPhase4Smoke(openWindow: Bool) {
+    private func runPhase4Smoke(openWindow: Bool, takeSnapshot: Bool = false) {
         Task {
             do {
                 let (paths, sink) = try await HistorySmoke.makeDataset()
                 phase4SmokeRoot = paths.root
                 if openWindow {
                     NSApplication.shared.setActivationPolicy(.regular)
-                    historyController = HistoryWindowController(sink: sink) { [weak self] in
+                    historyController = HistoryWindowController(sink: sink,
+                        settings: HistorySettings(excludedBundleIDs: [], retentionHours: 24, maximumGiB: 2,
+                                                  loginAtStart: false), actions: .preview) { [weak self] in
                         self?.historyController = nil
                         NSApplication.shared.terminate(nil)
                     }
                     historyController?.showWindow(nil)
                     historyController?.window?.makeKeyAndOrderFront(nil)
+                    if takeSnapshot {
+                        try await Task.sleep(nanoseconds: 2_000_000_000)
+                        let url = FileManager.default.temporaryDirectory.appendingPathComponent("screenrecall-063-history-preview.png")
+                        try historyController?.saveSnapshot(to: url)
+                        print("UI snapshot: \(url.path)")
+                        let settingsURL = FileManager.default.temporaryDirectory.appendingPathComponent("screenrecall-063-settings-preview.png")
+                        try historyController?.saveSettingsSnapshot(to: settingsURL)
+                        print("Settings snapshot: \(settingsURL.path)")
+                        NSApplication.shared.terminate(nil)
+                    }
                 } else {
                     let report = try await HistorySmoke.verify(paths: paths, sink: sink)
                     FileHandle.standardOutput.write(try JSONEncoder.pretty.encode(report))
@@ -381,7 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let coordinator else { showResult("存储不可用，无法启用屏幕历史。"); return }
         let alert = NSAlert()
         alert.messageText = "启用 ScreenRecall 屏幕历史？"
-        alert.informativeText = "启用后每 45 秒逐屏截图，图片和时间信息保存在本机私有数据目录，当前保留 \(preferences.retentionHours) 小时且最多约 \(preferences.maximumGiB) GiB。菜单栏可随时暂停、清空历史；请先设置需要排除的应用。当前没有网络上传。"
+        alert.informativeText = "启用后每 45 秒逐屏截图，图片和时间信息保存在本机私有数据目录，当前保留 \(preferences.retentionHours) 小时且最多约 \(preferences.maximumGiB) GiB。历史窗口中可随时暂停或清空；请先设置需要排除的应用。当前没有网络上传。"
         alert.addButton(withTitle: "启用并检查权限")
         alert.addButton(withTitle: "取消")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -408,48 +352,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc private func manualCapture() { Task { await coordinator?.requestCapture(.manual) } }
 
-    @objc private func configureExclusions() {
-        let alert = NSAlert()
-        alert.messageText = "排除应用"
-        alert.informativeText = "输入应用 Bundle ID，用逗号或换行分隔。排除的应用窗口不会出现在截图中；屏幕其他区域仍会被记录。更改后从下一批生效。"
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 72))
-        field.stringValue = preferences.excludedBundleIDs.sorted().joined(separator: ", ")
-        alert.accessoryView = field
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        guard let ids = AppPreferences.parseBundleIDs(field.stringValue) else {
-            showResult("Bundle ID 格式无效，例如 com.apple.Safari。")
-            return
-        }
+    private func saveSettings(ids: Set<String>, hours: Int, gib: Int) {
         preferences.excludedBundleIDs = ids
         Task { await captureProvider?.setExcludedBundleIDs(ids) }
-    }
-
-    @objc private func configureRetention() {
-        let alert = NSAlert()
-        alert.messageText = "保留时间与容量"
-        alert.informativeText = "超过时间或容量限制的最旧记录会自动删除。缩短限制会触发后台清理。"
-        let hours = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 170, height: 26))
-        for value in [6, 12, 24, 48] { hours.addItem(withTitle: "\(value) 小时") }
-        hours.selectItem(withTitle: "\(preferences.retentionHours) 小时")
-        let capacity = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 170, height: 26))
-        for value in [1, 2, 4] { capacity.addItem(withTitle: "\(value) GiB") }
-        capacity.selectItem(withTitle: "\(preferences.maximumGiB) GiB")
-        let stack = NSStackView(views: [hours, capacity])
-        stack.orientation = .vertical
-        stack.spacing = 8
-        stack.frame = NSRect(x: 0, y: 0, width: 190, height: 65)
-        alert.accessoryView = stack
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let selectedHours = [6, 12, 24, 48][max(0, hours.indexOfSelectedItem)]
-        let selectedGiB = [1, 2, 4][max(0, capacity.indexOfSelectedItem)]
-        preferences.retentionHours = selectedHours
-        preferences.maximumGiB = selectedGiB
+        preferences.retentionHours = hours
+        preferences.maximumGiB = gib
         Task {
-            await persistentSink?.updateRetentionPolicy(.configured(hours: selectedHours, maximumGiB: selectedGiB))
+            await persistentSink?.updateRetentionPolicy(.configured(hours: hours, maximumGiB: gib))
             try? await persistentSink?.enforceRetentionCooperatively(now: Date())
         }
     }
@@ -477,12 +386,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let url = persistentSink?.paths.root { NSWorkspace.shared.open(url) }
     }
 
-    @objc private func toggleLoginItem(_ sender: NSMenuItem) {
+    private func setLoginAtStart(_ enabled: Bool) -> Bool {
         do {
-            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
-            else { try SMAppService.mainApp.register() }
-            sender.state = SMAppService.mainApp.status == .enabled ? .on : .off
+            if enabled && SMAppService.mainApp.status != .enabled { try SMAppService.mainApp.register() }
+            if !enabled && SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
         } catch { showResult("登录项设置失败：\(error.localizedDescription)") }
+        return SMAppService.mainApp.status == .enabled
     }
 
     private func runEngineSmoke() {
@@ -614,7 +523,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func showResult(_ message: String) {
         let alert = NSAlert()
-        alert.messageText = "ScreenRecall 平台验证"
+        alert.messageText = "ScreenRecall"
         alert.informativeText = message
         alert.runModal()
     }
