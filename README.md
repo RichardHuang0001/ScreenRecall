@@ -12,7 +12,17 @@ xcodebuild -project ScreenRecall.xcodeproj -scheme ScreenRecall -configuration D
 
 当前项目使用 macOS 15.0 部署目标、arm64、Swift 5 语言模式和完整并发检查。Bundle ID 为 `com.screenrecall.app`。本机开发签名或后续正式签名可在 Xcode 的 Signing & Capabilities 中配置；Phase 0 构建测试使用了 `CODE_SIGNING_ALLOWED=NO`，并为运行探针的 Debug 应用单独使用本机 Apple Development 证书签名。
 
-本机试用包在 `dist/`：可直接打开 `ScreenRecall.app`，或从 `ScreenRecall-0.6.4-local-preview.dmg` 拖入“应用程序”。使用本机 Apple Development 证书签名，未做 Developer ID 公证，不适合公开分发。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
+本机自用包在 `dist/`：可直接打开 `ScreenRecall.app`（本机 Apple Development 证书签名，屏幕录制权限稳定，仅限本机自用与快速迭代）。
+
+## 对外发布打包
+
+面向他人分发的安装包请用脚本生成。它会用无身份的 ad-hoc 签名覆盖掉 Apple Development 证书（该证书名称含个人邮箱），确保产物不残留个人信息：
+
+```sh
+zsh Tools/package-release.sh 0.6.5
+```
+
+产物为 `dist/ScreenRecall-<版本>-local-preview.dmg`，脚本会自动校验签名与二进制中不含个人身份。`dist/`、`*.dmg` 已加入 `.gitignore`，安装包不进入版本库。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
 
 ## 当前使用方式
 
