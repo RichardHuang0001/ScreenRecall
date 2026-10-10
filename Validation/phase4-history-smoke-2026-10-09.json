@@ -1,0 +1,12 @@
+{
+  "allRowsHaveTwoScreens" : true,
+  "cacheReleasedOnClose" : true,
+  "dateJumpBeforeTarget" : true,
+  "exportAndReplaceMatch" : true,
+  "finalTotal" : 120,
+  "firstPage" : 50,
+  "originalDataMatches" : true,
+  "secondPageTotal" : 100,
+  "thumbnailHeight" : 320,
+  "thumbnailWidth" : 480
+}

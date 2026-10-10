@@ -1,0 +1,11 @@
+{
+  "allFilesExisted" : true,
+  "batchCountAfterClear" : 0,
+  "batchCountBeforeClear" : 1,
+  "batchStatuses" : [
+    "complete"
+  ],
+  "bytesAfterClear" : 0,
+  "bytesBeforeClear" : 1694470,
+  "readyAssetsBeforeClear" : 2
+}

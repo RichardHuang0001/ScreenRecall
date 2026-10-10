@@ -1,0 +1,86 @@
+{
+  "batches" : [
+    {
+      "beginSeconds" : 0.0018196249729953706,
+      "finishSeconds" : 0.0001305416808463633,
+      "frames" : [
+        {
+          "bytes" : 360611,
+          "captureAndEncodeSeconds" : 1.2885450000176206,
+          "displayID" : 1,
+          "height" : 1800,
+          "storeSeconds" : 0.011631333327386528,
+          "width" : 2880
+        },
+        {
+          "bytes" : 1063833,
+          "captureAndEncodeSeconds" : 0.25791154167382047,
+          "displayID" : 2,
+          "height" : 2160,
+          "storeSeconds" : 0.0019608750008046627,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 1.5445880416664295,
+      "startedAt" : 813252978.608115,
+      "status" : "complete",
+      "totalSeconds" : 3.1067647916497663
+    },
+    {
+      "beginSeconds" : 0.00123345828615129,
+      "finishSeconds" : 0.00024287501582875848,
+      "frames" : [
+        {
+          "bytes" : 360825,
+          "captureAndEncodeSeconds" : 0.44642770831706,
+          "displayID" : 1,
+          "height" : 1800,
+          "storeSeconds" : 0.0026730833342298865,
+          "width" : 2880
+        },
+        {
+          "bytes" : 722704,
+          "captureAndEncodeSeconds" : 0.3444147916743532,
+          "displayID" : 2,
+          "height" : 2160,
+          "storeSeconds" : 0.0022091666469350457,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 0.14475283335195854,
+      "startedAt" : 813253009.655219,
+      "status" : "complete",
+      "totalSeconds" : 0.9421126249944791
+    },
+    {
+      "beginSeconds" : 0.0010216250084340572,
+      "finishSeconds" : 0.00021466671023517847,
+      "frames" : [
+        {
+          "bytes" : 360442,
+          "captureAndEncodeSeconds" : 0.29243629169650376,
+          "displayID" : 1,
+          "height" : 1800,
+          "storeSeconds" : 0.0031277083326131105,
+          "width" : 2880
+        },
+        {
+          "bytes" : 746496,
+          "captureAndEncodeSeconds" : 0.27932883333414793,
+          "displayID" : 2,
+          "height" : 2160,
+          "storeSeconds" : 0.002572874946054071,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 0.11189787497278303,
+      "startedAt" : 813253040.47501,
+      "status" : "complete",
+      "totalSeconds" : 0.6907609166810289
+    }
+  ],
+  "format" : "heic",
+  "intervalSeconds" : 30,
+  "screenLimit" : 2,
+  "totalStoredBytes" : 3614911
+}

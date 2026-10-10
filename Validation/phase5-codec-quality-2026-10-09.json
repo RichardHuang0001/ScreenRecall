@@ -1,0 +1,18 @@
+{
+  "testImage": "synthetic gradient/checkerboard/small text",
+  "width": 1440,
+  "height": 900,
+  "quality": 0.88,
+  "codecs": {
+    "jpeg": {
+      "bytes": 696075,
+      "psnrDb": 22.88,
+      "meanAbsoluteError": 8.76
+    },
+    "heic": {
+      "bytes": 352444,
+      "psnrDb": 22.93,
+      "meanAbsoluteError": 8.34
+    }
+  }
+}

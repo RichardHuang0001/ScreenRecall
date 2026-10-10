@@ -1,0 +1,11 @@
+{
+  "batchCount" : 3,
+  "elapsedSeconds" : 71.48973202705383,
+  "readyAssets" : 6,
+  "statuses" : [
+    "complete",
+    "complete",
+    "complete"
+  ],
+  "totalBytes" : 7224278
+}

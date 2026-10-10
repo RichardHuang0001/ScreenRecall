@@ -1,0 +1,25 @@
+{
+  "batchCount" : 3,
+  "expectedCounts" : [
+    2,
+    2,
+    2
+  ],
+  "skippedBusy" : 0,
+  "skippedUnavailable" : 0,
+  "startedAt" : [
+    "2026-10-09T11:39:26Z",
+    "2026-10-09T11:39:57Z",
+    "2026-10-09T11:40:27Z"
+  ],
+  "statuses" : [
+    "complete",
+    "complete",
+    "complete"
+  ],
+  "succeededCounts" : [
+    2,
+    2,
+    2
+  ]
+}

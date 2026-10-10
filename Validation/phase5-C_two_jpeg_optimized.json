@@ -1,0 +1,92 @@
+{
+  "batches" : [
+    {
+      "beginSeconds" : 0.0003803333383984864,
+      "finishSeconds" : 0.00026204169262200594,
+      "frames" : [
+        {
+          "bytes" : 761739,
+          "captureAndEncodeSeconds" : 0.37465316662564874,
+          "displayID" : 1,
+          "height" : 1800,
+          "screenshotSeconds" : 0.3492380380630493,
+          "storeSeconds" : 0.0027375000063329935,
+          "width" : 2880
+        },
+        {
+          "bytes" : 1566855,
+          "captureAndEncodeSeconds" : 0.1899820000398904,
+          "displayID" : 2,
+          "height" : 2160,
+          "screenshotSeconds" : 0.13749897480010986,
+          "storeSeconds" : 0.0015729166916571558,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 0.1101296249544248,
+      "startedAt" : 813253206.578233,
+      "status" : "complete",
+      "totalSeconds" : 0.6799032500130124
+    },
+    {
+      "beginSeconds" : 0.0007130000158213079,
+      "finishSeconds" : 0.00018004165031015873,
+      "frames" : [
+        {
+          "bytes" : 754596,
+          "captureAndEncodeSeconds" : 0.23956712504150346,
+          "displayID" : 1,
+          "height" : 1800,
+          "screenshotSeconds" : 0.15661799907684326,
+          "storeSeconds" : 0.012229916697833687,
+          "width" : 2880
+        },
+        {
+          "bytes" : 1313094,
+          "captureAndEncodeSeconds" : 0.24615995836211368,
+          "displayID" : 2,
+          "height" : 2160,
+          "screenshotSeconds" : 0.20577597618103027,
+          "storeSeconds" : 0.0017493750201538205,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 0.12646458332892507,
+      "startedAt" : 813253238.018947,
+      "status" : "complete",
+      "totalSeconds" : 0.627243000024464
+    },
+    {
+      "beginSeconds" : 0.0010630833567120135,
+      "finishSeconds" : 0.00013141671661287546,
+      "frames" : [
+        {
+          "bytes" : 754484,
+          "captureAndEncodeSeconds" : 0.1744995416374877,
+          "displayID" : 1,
+          "height" : 1800,
+          "screenshotSeconds" : 0.14836299419403076,
+          "storeSeconds" : 0.0025470000109635293,
+          "width" : 2880
+        },
+        {
+          "bytes" : 1305342,
+          "captureAndEncodeSeconds" : 0.1572814999963157,
+          "displayID" : 2,
+          "height" : 2160,
+          "screenshotSeconds" : 0.12030303478240967,
+          "storeSeconds" : 0.0012388333561830223,
+          "width" : 3840
+        }
+      ],
+      "prepareSeconds" : 0.1366522916359827,
+      "startedAt" : 813253268.440251,
+      "status" : "complete",
+      "totalSeconds" : 0.4735440000076778
+    }
+  ],
+  "format" : "jpeg",
+  "intervalSeconds" : 30,
+  "screenLimit" : 2,
+  "totalStoredBytes" : 6456110
+}
