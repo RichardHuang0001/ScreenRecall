@@ -95,8 +95,32 @@ git log -1 --format='%an <%ae>'
   6. 需要对外分发时，把步骤 3 产出的**匿名 DMG** 作为 GitHub Release 附件上传
 - 提交信息、Release 标题/正文同样不得出现任何个人信息。
 
-## 8. 变更历史
+## 8. 单实例与清理约定（硬性）
+
+**整机任何时候只允许存在一个可运行的 `ScreenRecall.app` 实例：`/Applications/ScreenRecall.app`。**
+
+由此产生的要求：
+
+- **不得**把构建产物或安装包以可运行的 `.app` 形态留在别处（`dist/`、项目内、`~/Desktop`、备份目录、`/Applications` 隐藏名等）。
+- 构建输出统一走 `-derivedDataPath .build/...`（隐藏目录，Spotlight 不索引）；项目内不要另建 app 副本。
+- 备份旧版本时，**必须压缩成 `*.zip` / `*.tar.gz`** 保存，不要把 `.app` 目录平铺在磁盘上（否则会被 Spotlight 与 LaunchServices 当作又一个实例）。
+- 对外分发只发 DMG（见 §7），不发裸 `.app`。
+- **每次构建/打包后自检**（发现多余副本立即清理，删除走废纸篓）：
+  ```sh
+  # 全机应只列出 /Applications/ScreenRecall.app
+  find /Applications "$HOME" -maxdepth 8 -iname "ScreenRecall*.app" -prune 2>/dev/null | sort -u
+  # 清除失效注册（删掉副本后执行一次）
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user
+  ```
+- 若需清掉某个 bundle id 的屏幕录制授权残留条目（例如旧 Bundle ID）：
+  ```sh
+  tccutil reset ScreenCapture <旧.bundle.id>
+  ```
+- 备份目录与 Xcode `DerivedData` 已放置 `.metadata_never_index`，Spotlight 不再索引其中内容。新设备/新目录请照做。
+
+## 9. 变更历史
 
 | 日期 | 变更 |
 |---|---|
 | 2026-10-10 | 建立本文件。起因：安全审计发现旧 git 历史泄露了作者个人邮箱、本机主机名与含姓名的 Bundle ID。处置：Bundle ID 改为 `com.screenrecall.app`；提交身份改为中性；`git filter-repo` 重写全历史并从历史剔除安装包；删除并重建远端仓库；新增 `Tools/package-release.sh` 匿名发布脚本。 |
+| 2026-10-10 | 新增 §8 单实例约定。起因：替换应用后机器上出现 7 个 `ScreenRecall.app` 副本（安装暂存、`.build/` 构建缓存、`dist/` 旧产物、`DerivedData`、备份、废纸篓），导致 Spotlight 与屏幕录制权限列表出现重复项。处置：只保留 `/Applications/ScreenRecall.app`；其余副本清除、备份改为 zip；`tccutil reset` 清除旧 Bundle ID 的授权条目；重建 LaunchServices；备份目录与 `DerivedData` 加 `.metadata_never_index`。 |
