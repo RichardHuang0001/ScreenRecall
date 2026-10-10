@@ -6,3 +6,6 @@ DerivedData/
 __pycache__/
 *.py[cod]
 *.app/
+*.dmg
+.workbuddy/
+PRIVACY_AUDIT*.md
