@@ -1,6 +1,6 @@
 # ScreenRecall
 
-macOS 原生轻量屏幕历史工具。目前已实现 **Phase 0–5**：平台验证、核心采集、持久化与崩溃恢复、权限及系统保护、历史与设置界面、性能优化。正式路径将截图保存在本机私有目录；首次启动默认关闭，须用户主动启用。版本 0.6.3 为本机试用版，阶段 6 的长期发布验收尚未完成。
+macOS 原生轻量屏幕历史工具。目前已实现 **Phase 0–5**：平台验证、核心采集、持久化与崩溃恢复、权限及系统保护、历史与设置界面、性能优化。正式路径将截图保存在本机私有目录；首次启动默认关闭，须用户主动启用。版本 0.6.4 为本机试用版，阶段 6 的长期发布验收尚未完成。
 
 ## 打开与构建
 
@@ -12,7 +12,7 @@ xcodebuild -project ScreenRecall.xcodeproj -scheme ScreenRecall -configuration D
 
 当前项目使用 macOS 15.0 部署目标、arm64、Swift 5 语言模式和完整并发检查。Bundle ID 为 `com.screenrecall.app`。本机开发签名或后续正式签名可在 Xcode 的 Signing & Capabilities 中配置；Phase 0 构建测试使用了 `CODE_SIGNING_ALLOWED=NO`，并为运行探针的 Debug 应用单独使用本机 Apple Development 证书签名。
 
-本机试用包在 `dist/`：可直接打开 `ScreenRecall.app`，或从 `ScreenRecall-0.6.3-local-preview.dmg` 拖入“应用程序”。使用本机 Apple Development 证书签名，未做 Developer ID 公证，不适合公开分发。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
+本机试用包在 `dist/`：可直接打开 `ScreenRecall.app`，或从 `ScreenRecall-0.6.4-local-preview.dmg` 拖入“应用程序”。使用本机 Apple Development 证书签名，未做 Developer ID 公证，不适合公开分发。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
 
 ## 当前使用方式
 

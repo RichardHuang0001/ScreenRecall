@@ -236,6 +236,20 @@ final class HistoryRepository {
         }
     }
 
+    /// Revokes batches that could have captured under the old rules after the user saved.
+    func markBatchesOverlappingPrivacyChange(_ changedAt: Date) throws {
+        try db.transaction {
+            let ids = try db.query("""
+                SELECT id FROM batches WHERE status!='deleting'
+                AND (started_at>=? OR ended_at>=? OR status='capturing')
+                """, [.real(changedAt.timeIntervalSince1970), .real(changedAt.timeIntervalSince1970)], map: { Self.text($0, 0) })
+            for id in ids {
+                try db.execute("UPDATE batches SET status='deleting' WHERE id=?", [.text(id)])
+                try db.execute("UPDATE assets SET state='deleting' WHERE batch_id=?", [.text(id)])
+            }
+        }
+    }
+
     func nextDeletingBatch() throws -> String? {
         try db.query("SELECT id FROM batches WHERE status='deleting' ORDER BY started_at,id LIMIT 1", map: { Self.text($0, 0) }).first
     }

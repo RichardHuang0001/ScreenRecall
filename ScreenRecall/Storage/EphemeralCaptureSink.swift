@@ -23,5 +23,9 @@ actor EphemeralCaptureSink: CaptureConsuming {
 
     func clearHistory(minimumGeneration: UInt64) { summaries.removeAll() }
 
+    func invalidatePreviousGeneration(_ minimumGeneration: UInt64, capturedSince: Date) {
+        summaries.removeAll { $0.endedAt >= capturedSince }
+    }
+
     func recentSummaries() -> [CaptureBatchSummary] { summaries }
 }

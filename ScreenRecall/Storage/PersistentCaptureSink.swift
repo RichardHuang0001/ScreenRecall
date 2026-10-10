@@ -127,7 +127,18 @@ actor PersistentCaptureSink: CaptureConsuming {
         try recover()
         guard generation >= minimumGeneration else { return }
         try repository.finishBatch(summary)
-        _ = try enforceRetentionStep(now: Date())
+        do { _ = try enforceRetentionStep(now: Date()) }
+        catch StorageError.protectedAsset {
+            // The batch is committed. A preview/export lease defers deletion, not capture.
+            // releaseAsset drains the marked rows once the last lease is released.
+        }
+    }
+
+    func invalidatePreviousGeneration(_ generation: UInt64, capturedSince: Date) throws {
+        minimumGeneration = max(minimumGeneration, generation)
+        try recover()
+        try repository.markBatchesOverlappingPrivacyChange(capturedSince)
+        try drainDeletingBatches()
     }
 
     func clearHistory(minimumGeneration: UInt64) throws {
@@ -177,6 +188,9 @@ actor PersistentCaptureSink: CaptureConsuming {
 
     @discardableResult
     private func enforceRetentionStep(now: Date) throws -> Bool {
+        // Do not hide more history while an earlier deletion is waiting on a reader.
+        do { try drainDeletingBatches() }
+        catch StorageError.protectedAsset { return false }
         let expired = try retention.expiredIDs(repository: repository, now: now)
         if !expired.isEmpty {
             try repository.markDeleting(expired)

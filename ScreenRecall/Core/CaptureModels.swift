@@ -77,6 +77,7 @@ protocol CaptureProviding: Sendable {
     func prepareBatch(_ batchID: UUID) async throws -> [DisplayDescriptor]
     func captureToStaging(display: DisplayDescriptor, batchID: UUID) async throws -> CapturedAsset
     func finishBatch(_ batchID: UUID) async
+    func setExcludedBundleIDs(_ identifiers: Set<String>) async
 }
 
 protocol CaptureConsuming: Sendable {
@@ -86,6 +87,7 @@ protocol CaptureConsuming: Sendable {
     func discard(_ asset: CapturedAsset) async
     func finish(_ summary: CaptureBatchSummary, generation: UInt64) async throws
     func clearHistory(minimumGeneration: UInt64) async throws
+    func invalidatePreviousGeneration(_ minimumGeneration: UInt64, capturedSince: Date) async throws
 }
 
 protocol CapturePermissionChecking: Sendable {

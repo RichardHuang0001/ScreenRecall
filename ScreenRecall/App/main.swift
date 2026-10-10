@@ -79,6 +79,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var maintenanceRunning = false
     private var maintenanceAllowed = true
     private var maintenanceTask: Task<Void, Never>?
+    private var pendingPrivacyExclusions: Set<String>?
+    private var pendingPrivacyChangedAt: Date?
+    private var applyingPrivacyRules = false
     private var lastMaintainedBatchCount = -1
     private var currentState: CaptureState = .idle
     private var currentStateDescription = "未启动"
@@ -353,8 +356,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func manualCapture() { Task { await coordinator?.requestCapture(.manual) } }
 
     private func saveSettings(ids: Set<String>, hours: Int, gib: Int) {
+        let changedAt = Date()
         preferences.excludedBundleIDs = ids
-        Task { await captureProvider?.setExcludedBundleIDs(ids) }
+        pendingPrivacyExclusions = ids
+        pendingPrivacyChangedAt = changedAt
+        if !applyingPrivacyRules {
+            applyingPrivacyRules = true
+            Task {
+                var applied = false
+                while let nextIDs = pendingPrivacyExclusions {
+                    let effectiveFrom = pendingPrivacyChangedAt ?? Date()
+                    pendingPrivacyExclusions = nil
+                    pendingPrivacyChangedAt = nil
+                    do {
+                        try await coordinator?.updateExcludedBundleIDs(nextIDs, changedAt: effectiveFrom)
+                        applied = true
+                    }
+                    catch {
+                        applied = false
+                        showResult("隐私排除规则未能完成更新，采集已暂停：\(error.localizedDescription)")
+                    }
+                }
+                if applied { await coordinator?.finishPrivacyUpdates() }
+                applyingPrivacyRules = false
+            }
+        }
         preferences.retentionHours = hours
         preferences.maximumGiB = gib
         Task {

@@ -29,13 +29,15 @@ enum StorageTests {
             try await boundedAuditDoesNotSkipMissingRows()
             try await cooperativeRetentionClearsBacklog()
             try await clearWhileImageIsInUse()
+            try await privacyRevocationDeletesCommittedInFlightFrame()
             try await capacityWatermarksAndProtectedAsset()
+            try await protectedRetentionDoesNotFailCommittedCapture()
             try await orphanEncodingAndBatchStartRecovery()
             try await lowDiskStopsWrites()
             try await paginationAndMigration()
             try await clearRacesWithCommit()
             try singleWriterLock()
-            print("PASS: commit, clear epoch/race, moved-file recovery, staged-file recovery, SQLite rollback recovery, partial batch, deletion recovery, age/capacity retention, asset lease and clear, low disk, pagination/migration, single writer, missing file, bounded audit and retention, orphan staging")
+            print("PASS: commit, clear epoch/race, privacy revocation, moved-file recovery, staged-file recovery, SQLite rollback recovery, partial batch, deletion recovery, age/capacity retention, protected retention without capture failure, asset lease and clear, low disk, pagination/migration, single writer, missing file, bounded audit and retention, orphan staging")
         } catch {
             fputs("FAIL: \(error)\n", stderr)
             exit(1)
@@ -337,6 +339,65 @@ enum StorageTests {
         await sink.releaseAsset(assetID)
         try await sink.enforceRetention(now: Date().addingTimeInterval(7200))
         try expect((try await sink.status()).batchCount == 0, "deletion did not resume after lease release")
+    }
+
+    private static func privacyRevocationDeletesCommittedInFlightFrame() async throws {
+        let paths = try paths()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let sink = try PersistentCaptureSink(paths: paths)
+        let id = UUID()
+        let changedAt = Date()
+        try await sink.beginBatch(id, startedAt: Date(), displays: [display(1, order: 0), display(2, order: 1)], generation: 0)
+        let first = try asset(paths: paths, batchID: id, displayID: 1)
+        try await sink.consume(first, batchID: id, generation: 0)
+        let saved = try HistoryRepository(url: paths.database).assets(state: "ready")
+        try expect(saved.count == 1, "first old-rule frame was not saved")
+        let oldURL = paths.root.appendingPathComponent(saved[0].relativePath)
+        try await sink.invalidatePreviousGeneration(1, capturedSince: changedAt)
+        try expect(!FileManager.default.fileExists(atPath: oldURL.path), "revoked image file still exists")
+        try expect((try await sink.status()).batchCount == 0, "revoked batch remains in history")
+        let late = try asset(paths: paths, batchID: id, displayID: 2)
+        do {
+            try await sink.consume(late, batchID: id, generation: 0)
+            throw TestFailure.assertion("late old-generation image was accepted")
+        } catch StorageError.staleGeneration { /* expected */ }
+        await sink.discard(late)
+        let next = UUID()
+        try await sink.beginBatch(next, startedAt: Date(), displays: [display(1, order: 0)], generation: 1)
+        let fresh = try asset(paths: paths, batchID: next, displayID: 1)
+        try await sink.consume(fresh, batchID: next, generation: 1)
+        let secondChange = Date()
+        try await sink.finish(summary(id: next, started: Date(), expected: 1, successes: [1], status: .complete), generation: 1)
+        try expect((try await sink.status()).batchCount == 1, "new-generation batch did not save")
+        try await sink.invalidatePreviousGeneration(2, capturedSince: secondChange)
+        try expect((try await sink.status()).batchCount == 0, "batch completed during rule update was not revoked")
+    }
+
+    private static func protectedRetentionDoesNotFailCommittedCapture() async throws {
+        let paths = try paths()
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let policy = RetentionPolicy(maxAge: 3600, maximumBytes: 100_000_000,
+                                     highWatermarkBytes: 95_000_000, lowWatermarkBytes: 85_000_000,
+                                     batchDeleteLimit: 20)
+        let sink = try PersistentCaptureSink(paths: paths, policy: policy)
+        let old = UUID()
+        let oldStart = Date().addingTimeInterval(-120)
+        try await sink.beginBatch(old, startedAt: oldStart, displays: [display(1, order: 0)], generation: 0)
+        try await sink.consume(asset(paths: paths, batchID: old, displayID: 1), batchID: old, generation: 0)
+        try await sink.finish(summary(id: old, started: oldStart, expected: 1, successes: [1], status: .complete), generation: 0)
+        let oldAsset = try HistoryRepository(url: paths.database).assets(state: "ready").first!
+        _ = try await sink.acquireAssetURL(oldAsset.id)
+        await sink.updateRetentionPolicy(RetentionPolicy(maxAge: 60, maximumBytes: 100_000_000,
+                                                         highWatermarkBytes: 95_000_000, lowWatermarkBytes: 85_000_000,
+                                                         batchDeleteLimit: 20))
+        let current = UUID()
+        let currentStart = Date()
+        try await sink.beginBatch(current, startedAt: currentStart, displays: [display(1, order: 0)], generation: 0)
+        try await sink.consume(asset(paths: paths, batchID: current, displayID: 1), batchID: current, generation: 0)
+        try await sink.finish(summary(id: current, started: currentStart, expected: 1, successes: [1], status: .complete), generation: 0)
+        try expect((try await sink.history()).map(\.id) == [current.uuidString], "current batch was not committed")
+        await sink.releaseAsset(oldAsset.id)
+        try expect((try await sink.status()).batchCount == 1, "leased expired batch was not removed after release")
     }
 
     private static func orphanEncodingAndBatchStartRecovery() async throws {

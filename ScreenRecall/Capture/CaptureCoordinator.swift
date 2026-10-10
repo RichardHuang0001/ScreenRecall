@@ -28,6 +28,8 @@ actor CaptureCoordinator {
     private var lastBatch: CaptureBatchSummary?
     private var wantsCapture = false
     private var systemPauseReasons: Set<String> = []
+    private var privacyUpdateInProgress = false
+    private var privacyWasIdle = false
 
     init(provider: any CaptureProviding, sink: any CaptureConsuming, scheduler: CaptureScheduler,
          permission: any CapturePermissionChecking, backendTimeoutSeconds: Double = 10,
@@ -48,6 +50,7 @@ actor CaptureCoordinator {
 
     func start() async {
         wantsCapture = true
+        guard !privacyUpdateInProgress else { return }
         guard state != .backendStalled else { return }
         guard systemPauseReasons.isEmpty else {
             state = .pausedBySystem
@@ -98,6 +101,32 @@ actor CaptureCoordinator {
         publish()
         await scheduler.stop()
         try await sink.clearHistory(minimumGeneration: generation)
+    }
+
+    /// A rule change revokes the current batch, including frames already committed by it.
+    /// The sink's generation gate is installed before the provider receives new rules.
+    func updateExcludedBundleIDs(_ identifiers: Set<String>, changedAt: Date = Date()) async throws {
+        if !privacyUpdateInProgress { privacyWasIdle = state == .idle }
+        privacyUpdateInProgress = true
+        let preserveErrorState = state == .backendStalled || state == .storageUnavailable
+        captureGeneration &+= 1
+        let generation = captureGeneration
+        if !preserveErrorState { state = .pausedBySystem }
+        publish()
+        await scheduler.stop()
+        try await sink.invalidatePreviousGeneration(generation, capturedSince: changedAt)
+        await provider.setExcludedBundleIDs(identifiers)
+    }
+
+    /// Called after all queued setting changes have applied, so no intermediate rule set runs.
+    func finishPrivacyUpdates() async {
+        privacyUpdateInProgress = false
+        guard state != .backendStalled, state != .storageUnavailable else { return }
+        if wantsCapture { await start() }
+        else if systemPauseReasons.isEmpty {
+            state = privacyWasIdle ? .idle : .pausedByUser
+            publish()
+        }
     }
 
     func suspendForSystem(_ reason: String) async {

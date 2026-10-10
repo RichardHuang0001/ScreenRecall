@@ -376,7 +376,7 @@ private struct SettingsView: View {
                             .frame(height: 72)
                             .padding(6)
                             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-                        Text("每行填写一个，例如 com.apple.Safari；更改从下一批开始生效。")
+                        Text("每行填写一个，例如 com.apple.Safari；保存时会废弃正在采集的一批，新规则用于后续截图。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     settingsSection("本地存储", icon: "externaldrive") {

@@ -18,9 +18,10 @@ private final class TogglePermission: CapturePermissionChecking, @unchecked Send
 private enum FakeError: Error { case captureFailed }
 
 private actor FakeProvider: CaptureProviding {
-    enum Mode: Equatable { case normal, failSecond, holdFirst }
+    enum Mode: Equatable { case normal, failSecond, holdFirst, holdSecond }
     var mode: Mode
     private(set) var captureCalls = 0
+    private(set) var excludedBundleIDs: Set<String> = []
     private var heldContinuation: CheckedContinuation<Void, Never>?
 
     init(mode: Mode) { self.mode = mode }
@@ -32,7 +33,7 @@ private actor FakeProvider: CaptureProviding {
 
     func captureToStaging(display: DisplayDescriptor, batchID: UUID) async throws -> CapturedAsset {
         captureCalls += 1
-        if mode == .holdFirst && captureCalls == 1 {
+        if (mode == .holdFirst && captureCalls == 1) || (mode == .holdSecond && captureCalls == 2) {
             await withCheckedContinuation { heldContinuation = $0 }
         }
         if mode == .failSecond && display.id == 2 { throw FakeError.captureFailed }
@@ -48,18 +49,34 @@ private actor FakeProvider: CaptureProviding {
     }
 
     func finishBatch(_ batchID: UUID) {}
+    func setExcludedBundleIDs(_ identifiers: Set<String>) { excludedBundleIDs = identifiers }
 }
 
 private actor FakeSink: CaptureConsuming {
     private(set) var consumed = 0
     private(set) var discarded = 0
     private(set) var summaries: [CaptureBatchSummary] = []
+    private(set) var retainedByBatch: [UUID: Int] = [:]
+    private(set) var revokedBatch: UUID?
+    private var minimumGeneration: UInt64 = 0
     func beginBatch(_ batchID: UUID, startedAt: Date, displays: [DisplayDescriptor], generation: UInt64) {}
-    func consume(_ asset: CapturedAsset, batchID: UUID, generation: UInt64) { consumed += 1 }
+    func consume(_ asset: CapturedAsset, batchID: UUID, generation: UInt64) {
+        guard generation >= minimumGeneration else { return }
+        consumed += 1
+        retainedByBatch[batchID, default: 0] += 1
+    }
     func recordFailure(display: DisplayDescriptor, batchID: UUID, generation: UInt64, message: String) {}
     func discard(_ asset: CapturedAsset) { discarded += 1 }
-    func finish(_ summary: CaptureBatchSummary, generation: UInt64) { summaries.append(summary) }
+    func finish(_ summary: CaptureBatchSummary, generation: UInt64) {
+        if generation >= minimumGeneration { summaries.append(summary) }
+    }
     func clearHistory(minimumGeneration: UInt64) { summaries.removeAll() }
+    func invalidatePreviousGeneration(_ generation: UInt64, capturedSince: Date) {
+        minimumGeneration = max(minimumGeneration, generation)
+        revokedBatch = retainedByBatch.keys.first
+        retainedByBatch.removeAll()
+        summaries.removeAll { $0.endedAt >= capturedSince }
+    }
 }
 
 private actor FailingSink: CaptureConsuming {
@@ -76,6 +93,7 @@ private actor FailingSink: CaptureConsuming {
     func discard(_ asset: CapturedAsset) {}
     func finish(_ summary: CaptureBatchSummary, generation: UInt64) {}
     func clearHistory(minimumGeneration: UInt64) {}
+    func invalidatePreviousGeneration(_ minimumGeneration: UInt64, capturedSince: Date) {}
 }
 
 private actor TickCounter {
@@ -89,13 +107,15 @@ enum EngineTests {
         do {
             try await duplicateTriggerAndPartialFailure()
             try await pauseInvalidatesLateCapture()
+            try await privacyUpdateRevokesPartiallyCommittedBatch()
+            try await privacyUpdateKeepsNeverEnabledState()
             try await stalledBackendNeverOverlaps()
             try await deniedPermissionDoesNotCapture()
             try await storageFailureStopsBatch()
             try await systemPauseCancelsAndResumesOnlyWhenRequested()
             try await permissionRevocationStopsAndRechecks()
             try await timerStops()
-            print("PASS: duplicate trigger, partial failure, generation cancellation, backend stall, permission denial and revocation, storage failure stop, system pause and resume, timer stop")
+            print("PASS: duplicate trigger, partial failure, generation cancellation, privacy update revocation, backend stall, permission denial and revocation, storage failure stop, system pause and resume, timer stop")
         } catch {
             fputs("FAIL: \(error)\n", stderr)
             exit(1)
@@ -112,6 +132,40 @@ enum EngineTests {
             try await Task.sleep(nanoseconds: 10_000_000)
         }
         throw NSError(domain: "EngineTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "capture did not start"])
+    }
+
+    private static func privacyUpdateRevokesPartiallyCommittedBatch() async throws {
+        let provider = FakeProvider(mode: .holdSecond)
+        let sink = FakeSink()
+        let coordinator = CaptureCoordinator(provider: provider, sink: sink,
+                                             scheduler: CaptureScheduler(intervalSeconds: 3600), permission: GrantedPermission())
+        await coordinator.start()
+        let oldCapture = Task { await coordinator.requestCapture(.manual) }
+        for _ in 0..<100 {
+            if await provider.captureCalls == 2 { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        try expect(await provider.captureCalls == 2, "second display did not enter capture")
+        try expect(await sink.consumed == 1, "first display was not committed before rule update")
+        try await coordinator.updateExcludedBundleIDs(["com.example.Secret"])
+        try expect(await provider.excludedBundleIDs == ["com.example.Secret"], "new exclusion was not installed")
+        try expect(await sink.revokedBatch != nil, "in-flight batch was not revoked")
+        try expect(await sink.retainedByBatch.isEmpty, "old rule image remained after update")
+        await coordinator.finishPrivacyUpdates()
+        await provider.release()
+        await oldCapture.value
+        try expect(await sink.retainedByBatch.isEmpty, "late image was retained after rule update")
+        await coordinator.requestCapture(.manual)
+        try expect(await sink.retainedByBatch.values.reduce(0, +) == 2, "new batch did not capture under updated rules")
+        await coordinator.stop()
+    }
+
+    private static func privacyUpdateKeepsNeverEnabledState() async throws {
+        let coordinator = CaptureCoordinator(provider: FakeProvider(mode: .normal), sink: FakeSink(),
+                                             scheduler: CaptureScheduler(intervalSeconds: 3600), permission: GrantedPermission())
+        try await coordinator.updateExcludedBundleIDs(["com.example.Secret"])
+        await coordinator.finishPrivacyUpdates()
+        try expect((await coordinator.snapshot()).state == .idle, "saving exclusions before enabling changed idle state")
     }
 
     private static func duplicateTriggerAndPartialFailure() async throws {
@@ -167,6 +221,9 @@ enum EngineTests {
         try await waitForCapture(provider)
         try await Task.sleep(nanoseconds: 250_000_000)
         try expect((await coordinator.snapshot()).state == .backendStalled, "watchdog did not stop backend")
+        try await coordinator.updateExcludedBundleIDs(["com.example.Secret"])
+        await coordinator.finishPrivacyUpdates()
+        try expect((await coordinator.snapshot()).state == .backendStalled, "rule update restarted a stalled backend")
         await coordinator.requestCapture(.scheduled)
         try expect(await provider.captureCalls == 1, "stalled call overlapped another call")
         await provider.release()
