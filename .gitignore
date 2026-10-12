@@ -1,11 +1,24 @@
 .build/
 .DS_Store
-xcuserdata/
+userdata/
 *.xcuserstate
 DerivedData/
 __pycache__/
 *.py[cod]
 *.app/
 *.dmg
+dist/
 .workbuddy/
 PRIVACY_AUDIT*.md
+ACCEPTANCE_AUDIT*.md
+PHASE*_VALIDATION*.md
+
+# Internal documentation & development archives
+docs/internal/
+*.local.md
+
+# Validation raw outputs and benchmark data
+Validation/*.json
+Validation/*.jsonl
+Validation/*-time.txt
+Validation/*.png

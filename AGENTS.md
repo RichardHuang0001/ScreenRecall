@@ -57,8 +57,10 @@ user.email = noreply@screenrecall.local
 
 以下已在 `.gitignore` 中忽略，**不得**用 `-f` 强制添加：
 
-- `dist/` 下的 `*.dmg`、`*.app`（安装包 / 构建产物）
-- `PRIVACY_AUDIT*.md`（安全审计记录，含敏感引用）
+- `dist/` 整个目录及 `*.dmg`、`*.app`（安装包 / 构建产物）
+- `docs/internal/`（开发期内部笔记与归档数据）
+- `PRIVACY_AUDIT*.md`、`ACCEPTANCE_AUDIT*.md`（安全与阶段审计记录）
+- `Validation/` 下的原始运行结果与基准数据（`*.json`、`*.jsonl`、`*.png`）
 - `.workbuddy/`（本地记忆，含敏感引用）
 - `DerivedData/`、`.build/`、`__pycache__/` 等构建缓存
 
@@ -88,7 +90,7 @@ git log -1 --format='%an <%ae>'
     ```
 - 发版流程：
   1. 递增版本号：`project.pbxproj` 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`
-  2. 更新受影响的文档（`README.md` / `LOCAL_PREVIEW.md` / `DEVELOPMENT_PLAN.md`）
+  2. 更新受影响的文档（`README.md` 等）
   3. 产出匿名包：`zsh Tools/package-release.sh <version>`
   4. **只提交代码与文档**（绝不提交 DMG / app）
   5. `git push origin main`

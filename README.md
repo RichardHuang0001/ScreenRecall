@@ -24,25 +24,23 @@ xcodebuild -project ScreenRecall.xcodeproj -scheme ScreenRecall -configuration D
 zsh Tools/package-release.sh 0.6.5
 ```
 
-产物为 `dist/ScreenRecall-<版本>-local-preview.dmg`，脚本会自动校验签名与二进制中不含个人身份。`dist/`、`*.dmg` 已加入 `.gitignore`，安装包不进入版本库。`dist/试用说明.txt` 写有首次启用、数据保留和试用反馈方法。
+产物为 `dist/ScreenRecall-<版本>.dmg`，脚本会自动校验签名与二进制中不含个人身份。`dist/` 已加入 `.gitignore`，构建与打包产物不进入版本库。
 
 ## 当前使用方式
 
 普通启动显示一个固定宽度的菜单栏图标，悬停可看状态，点击直接打开屏幕历史窗口；第一次不会自动截屏。窗口顶部可启用、暂停、继续或立即记录，齿轮按钮打开二级设置页。设置页的“定时采集”首先显示屏幕录制授权状态和 macOS 授权入口，回到应用时自动刷新，无定时轮询或授权弹窗；其它选项管理排除应用 Bundle ID、保留时间与容量、登录后启动、本地数据和诊断。获得授权并启用后每 45 秒逐屏截图。“屏幕历史”按时间分页加载；点击缩略图可预览，复制原图、导出或在 Finder 中显示。系统睡眠、会话不可采集、严重内存或热压力会暂停新批次。窗口关闭后，已启用的后台采集仍继续。
 
-## 验证入口
+## 验证与测试
 
-设置页中的“平台验证…”可重复阶段 0 的 JPEG/HEIC 对照探针。为自动测量，可编译 `Validation/ProbeCLI.swift` 与 `ScreenRecall/Validation/PlatformProbe.swift` 为一次性命令行程序。它调用相同的探针实现；见 `PLATFORM_VALIDATION.md`。
+设置页中的“平台验证…”可重复阶段 0 的 JPEG/HEIC 对照探针。为自动测量，可编译 `Validation/ProbeCLI.swift` 与 `ScreenRecall/Validation/PlatformProbe.swift` 为一次性命令行程序。
 
-阶段 1 自动测试：`zsh Validation/run-engine-tests.sh`。测试结果与真实 30 秒采集记录见 `PHASE1_VALIDATION.md`。
+主要自动化测试入口：
 
-阶段 2 自动测试：`zsh Validation/run-storage-tests.sh`；跨进程强制退出恢复测试：`zsh Validation/run-storage-crash-test.sh`。存储模块采用 SQLite 与本地私有图片目录，不上传图片；阶段 2 结果见 `PHASE2_VALIDATION.md`。
-
-阶段 3 首次启用与排除设置测试：`zsh Validation/run-preferences-tests.sh`；系统暂停语义由引擎测试覆盖。已签名应用连续双屏持久化实测见 `PHASE3_VALIDATION.md`。真实锁屏、外接屏热插拔和长期驻留仍需在后续验收中完成。
-
-阶段 4 以显式 `--phase4-smoke` 入口生成独立的合成历史，验证分页、日期定位、缩略图与文件操作；报告和界面截图见 `PHASE4_VALIDATION.md`。截图中的蓝橙色图片只是测试样本。
-
-阶段 5 资源对照、JPEG/HEIC 选择与剩余性能限制见 `PERFORMANCE.md`。阶段 6 仍需长期驻留、屏幕变化、更新迁移和电池模式验收。
+- **核心引擎调度测试**：`zsh Validation/run-engine-tests.sh`（覆盖并发抢占、多屏批次取消、隐私撤回、系统挂起/恢复与计时器管理）
+- **存储与索引测试**：`zsh Validation/run-storage-tests.sh`（覆盖原子写入、SQLite 索引与历史查询）
+- **崩溃恢复测试**：`zsh Validation/run-storage-crash-test.sh`（覆盖跨进程 SIGKILL 异常退出的数据自愈）
+- **用户偏好与排除名单测试**：`zsh Validation/run-preferences-tests.sh`（覆盖权限配置、黑名单过滤与生命周期）
+- **编解码与性能基准**：`python3 Validation/run-performance-benchmark.py`（多屏 JPEG/HEIC 压缩率与 CPU 负载评估）
 
 ## 许可证 / License
 
