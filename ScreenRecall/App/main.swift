@@ -14,70 +14,70 @@ private enum StatusBarIcon {
             NSColor.black.setStroke()
             NSColor.black.setFill()
 
-            // 1. Secondary/Rear display frame (layered in upper right with subtle depth)
+            // 1. Secondary/Rear display frame (layered in upper right, scaled to fill)
             let rear = NSBezierPath()
-            rear.lineWidth = 1.25
+            rear.lineWidth = 1.3
             rear.lineCapStyle = .round
             rear.lineJoinStyle = .round
-            rear.move(to: NSPoint(x: 5.6, y: 15.5))
-            rear.line(to: NSPoint(x: 14.2, y: 15.5))
-            rear.curve(to: NSPoint(x: 16.0, y: 13.7),
-                       controlPoint1: NSPoint(x: 15.3, y: 15.5),
-                       controlPoint2: NSPoint(x: 16.0, y: 14.8))
-            rear.line(to: NSPoint(x: 16.0, y: 7.0))
+            rear.move(to: NSPoint(x: 5.2, y: 16.6))
+            rear.line(to: NSPoint(x: 15.2, y: 16.6))
+            rear.curve(to: NSPoint(x: 17.0, y: 14.8),
+                       controlPoint1: NSPoint(x: 16.2, y: 16.6),
+                       controlPoint2: NSPoint(x: 17.0, y: 15.8))
+            rear.line(to: NSPoint(x: 17.0, y: 5.8))
             rear.stroke()
 
-            // 2. Primary/Front display frame (anchored in lower left, 16:10 aspect ratio)
-            let front = NSBezierPath(roundedRect: NSRect(x: 2.0, y: 2.8, width: 11.8, height: 9.8),
-                                     xRadius: 1.8, yRadius: 1.8)
-            front.lineWidth = 1.35
+            // 2. Primary/Front display frame (anchored in lower left, scaled to 13.4 x 11.2)
+            let front = NSBezierPath(roundedRect: NSRect(x: 1.0, y: 1.6, width: 13.4, height: 11.2),
+                                     xRadius: 2.0, yRadius: 2.0)
+            front.lineWidth = 1.4
             front.stroke()
 
             // 3. Center indicator & state glyphs
             switch state {
             case .pausedByUser, .pausedBySystem:
-                // Clean pause bars centered in front display
+                // Clean bold pause bars centered in front display
                 let pause = NSBezierPath()
-                pause.lineWidth = 1.25
+                pause.lineWidth = 1.35
                 pause.lineCapStyle = .round
-                pause.move(to: NSPoint(x: 6.9, y: 6.1))
-                pause.line(to: NSPoint(x: 6.9, y: 9.3))
-                pause.move(to: NSPoint(x: 8.9, y: 6.1))
-                pause.line(to: NSPoint(x: 8.9, y: 9.3))
+                pause.move(to: NSPoint(x: 6.6, y: 5.3))
+                pause.line(to: NSPoint(x: 6.6, y: 9.1))
+                pause.move(to: NSPoint(x: 8.8, y: 5.3))
+                pause.line(to: NSPoint(x: 8.8, y: 9.1))
                 pause.stroke()
 
             case .awaitingPermission, .storageUnavailable, .backendStalled, .error:
                 // Sharp exclamation mark for alert/error states
                 let alert = NSBezierPath()
-                alert.lineWidth = 1.3
+                alert.lineWidth = 1.4
                 alert.lineCapStyle = .round
-                alert.move(to: NSPoint(x: 7.9, y: 7.2))
-                alert.line(to: NSPoint(x: 7.9, y: 9.4))
+                alert.move(to: NSPoint(x: 7.7, y: 6.7))
+                alert.line(to: NSPoint(x: 7.7, y: 9.3))
                 alert.stroke()
-                NSBezierPath(ovalIn: NSRect(x: 7.15, y: 5.7, width: 1.5, height: 1.5)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 6.85, y: 5.0, width: 1.7, height: 1.7)).fill()
 
             case .capturing:
                 // Clock ring + active capture pulse dot, with secondary screen capture flare
-                let dial = NSBezierPath(ovalIn: NSRect(x: 5.7, y: 5.5, width: 4.4, height: 4.4))
-                dial.lineWidth = 1.1
+                let dial = NSBezierPath(ovalIn: NSRect(x: 5.1, y: 4.6, width: 5.2, height: 5.2))
+                dial.lineWidth = 1.15
                 dial.stroke()
-                NSBezierPath(ovalIn: NSRect(x: 6.9, y: 6.7, width: 2.0, height: 2.0)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 6.5, y: 6.0, width: 2.4, height: 2.4)).fill()
                 // Dual-screen sync indicator on rear screen corner
-                NSBezierPath(ovalIn: NSRect(x: 14.5, y: 14.0, width: 1.5, height: 1.5)).fill()
+                NSBezierPath(ovalIn: NSRect(x: 15.3, y: 14.9, width: 1.7, height: 1.7)).fill()
 
             default:
                 // Ready / Idle state: refined clock dial with elegant hands
-                let dial = NSBezierPath(ovalIn: NSRect(x: 5.7, y: 5.5, width: 4.4, height: 4.4))
-                dial.lineWidth = 1.1
+                let dial = NSBezierPath(ovalIn: NSRect(x: 5.1, y: 4.6, width: 5.2, height: 5.2))
+                dial.lineWidth = 1.15
                 dial.stroke()
 
                 let hands = NSBezierPath()
-                hands.lineWidth = 1.05
+                hands.lineWidth = 1.1
                 hands.lineCapStyle = .round
-                hands.move(to: NSPoint(x: 7.9, y: 7.7))
-                hands.line(to: NSPoint(x: 7.9, y: 8.8))
-                hands.move(to: NSPoint(x: 7.9, y: 7.7))
-                hands.line(to: NSPoint(x: 8.7, y: 8.2))
+                hands.move(to: NSPoint(x: 7.7, y: 7.2))
+                hands.line(to: NSPoint(x: 7.7, y: 8.6))
+                hands.move(to: NSPoint(x: 7.7, y: 7.2))
+                hands.line(to: NSPoint(x: 8.7, y: 7.8))
                 hands.stroke()
             }
 
