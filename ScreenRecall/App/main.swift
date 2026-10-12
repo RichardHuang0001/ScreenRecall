@@ -330,23 +330,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func startCapture() {
         guard let coordinator else { showResult("存储不可用，无法启用屏幕历史。"); return }
-        let alert = NSAlert()
-        alert.messageText = "启用 ScreenRecall 屏幕历史？"
-        alert.informativeText = "启用后每 45 秒逐屏截图，图片和时间信息保存在本机私有数据目录，当前保留 \(preferences.retentionHours) 小时且最多约 \(preferences.maximumGiB) GiB。历史窗口中可随时暂停或清空；请先设置需要排除的应用。当前没有网络上传。"
-        alert.addButton(withTitle: "启用并检查权限")
-        alert.addButton(withTitle: "取消")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
-            showResult("请在系统设置的隐私与安全性中授予屏幕录制权限，然后重新启动 ScreenRecall。")
-            return
-        }
         preferences.captureEnabled = true
-        Task {
-            await coordinator.start()
-            if await coordinator.snapshot().state == .awaitingPermission {
-                showResult("请在系统设置的隐私与安全性中授予 ScreenRecall 屏幕录制权限，然后重新启动应用。")
-            }
-        }
+        Task { await coordinator.start() }
     }
 
     @objc private func pauseCapture() {

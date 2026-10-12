@@ -1012,6 +1012,9 @@ private struct SettingsView: View {
     @State private var errorMessage: String?
     @State private var runningApps: [RunningAppItem] = []
     @State private var showClearConfirmation = false
+    @State private var screenRecordingAuthorized = false
+
+    private let screenRecordingSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
 
     init(settings: HistorySettings, actions: HistoryActions,
          onUpdate: @escaping (HistorySettings) -> Void) {
@@ -1081,6 +1084,13 @@ private struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             runningApps = RunningAppDetector.currentApps()
+            refreshScreenRecordingAuthorization()
+        }
+        .onChange(of: currentTab) { _, tab in
+            if tab == .capture { refreshScreenRecordingAuthorization() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if currentTab == .capture { refreshScreenRecordingAuthorization() }
         }
         .alert("确定清空全部屏幕历史？", isPresented: $showClearConfirmation) {
             Button("永久清空", role: .destructive) {
@@ -1097,6 +1107,22 @@ private struct SettingsView: View {
 
     private var captureTab: some View {
         VStack(alignment: .leading, spacing: 18) {
+            settingsCard(title: "屏幕录制授权", icon: "lock.shield") {
+                HStack(spacing: 9) {
+                    Image(systemName: screenRecordingAuthorized ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(screenRecordingAuthorized ? Color.green : Color.orange)
+                    Text(screenRecordingAuthorized ? "已授权，可以记录屏幕" : "未授权，暂不能记录屏幕")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(screenRecordingAuthorized ? Color.green : Color.orange)
+                    Spacer()
+                    Link(screenRecordingAuthorized ? "管理授权" : "前往授权", destination: screenRecordingSettingsURL)
+                        .font(.subheadline)
+                }
+                Text("请在 macOS「隐私与安全性」→「屏幕与系统音频录制」中允许 ScreenRecall。若列表中没有本应用，点列表下方的“+”并选择“应用程序”中的 ScreenRecall。返回此页后状态会自动更新；如系统要求重启，请按提示操作。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             settingsCard(title: "定时记录频率", icon: "timer") {
                 HStack {
                     Text("自动截图间隔")
@@ -1273,7 +1299,7 @@ private struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("ScreenRecall").font(.headline)
-                        Text("v0.6.4 (原生 macOS 应用)").font(.subheadline).foregroundStyle(.secondary)
+                        Text("v0.6.5 (原生 macOS 应用)").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Text("隐私优先的本地轻量屏幕历史记录工具。所有截图仅保存在本机私有沙盒，零云端上传，极低功耗。")
                         .font(.caption).foregroundStyle(.secondary)
@@ -1289,6 +1315,10 @@ private struct SettingsView: View {
     }
 
     // MARK: Helpers
+
+    private func refreshScreenRecordingAuthorization() {
+        screenRecordingAuthorized = CGPreflightScreenCaptureAccess()
+    }
 
     @ViewBuilder
     private func settingsCard<Content: View>(title: String, icon: String,
