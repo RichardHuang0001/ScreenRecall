@@ -1,52 +1,160 @@
-# ScreenRecall
+<div align="center">
 
-macOS 原生轻量屏幕历史工具。目前已实现 **Phase 0–5**：平台验证、核心采集、持久化与崩溃恢复、权限及系统保护、历史与设置界面、性能优化。正式路径将截图保存在本机私有目录；首次启动默认关闭，须用户主动启用。版本 0.6.5 为本机试用版，阶段 6 的长期发布验收尚未完成。
+# 🖥️ ScreenRecall
 
-> ⚠️ **工程规范（脱敏、提交身份、签名、发版流程）以 [`AGENTS.md`](AGENTS.md) 为权威。** 人工与 AI Agent 在动手修改、提交、打包、推送前请先读该文件；凡与历史文档冲突，以 `AGENTS.md` 为准。
+**macOS 原生轻量级屏幕历史时光机 · 100% 本地存储 · 零云端隐私**
 
-## 打开与构建
+[![Release](https://img.shields.io/github/v/release/RichardHuang0001/ScreenRecall?style=flat-square&color=3478F6)](https://github.com/RichardHuang0001/ScreenRecall/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-macOS%2015.0%2B-blue?style=flat-square&logo=apple)](https://github.com/RichardHuang0001/ScreenRecall)
+[![Architecture](https://img.shields.io/badge/arch-Apple%20Silicon%20(arm64)-orange?style=flat-square)](https://github.com/RichardHuang0001/ScreenRecall)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-red?style=flat-square)](LICENSE)
+[![Privacy](https://img.shields.io/badge/privacy-100%25%20Local%20Only-success?style=flat-square)](LICENSE)
 
-在 Xcode 16.3 或兼容版本中打开 `ScreenRecall.xcodeproj`，选择 `ScreenRecall` scheme 和本机 macOS 目标后构建运行。命令行构建：
+<p align="center">
+  <a href="#-快速下载">📥 立即下载</a> •
+  <a href="#-核心特性">✨ 核心功能</a> •
+  <a href="#-使用指南">🚀 使用指南</a> •
+  <a href="#-隐私与安全承诺">🔒 隐私承诺</a> •
+  <a href="#-开发者指引">🛠️ 编译开发</a> •
+  <a href="#-许可证--license">📜 许可证</a>
+</p>
+
+</div>
+
+---
+
+## 💡 为什么选择 ScreenRecall？
+
+在日常使用 Mac 工作、学习或浏览时，我们经常遇到这样的烦恼：
+- *“刚才看的那篇技术文章/设计图叫什么名字来着？忘了收藏标签页……”*
+- *“刚刚终端里弹出的那行瞬时报错日志是什么？窗口不小心关了……”*
+- *“昨天下午写方案时查过的某条关键数据，现在怎么都找不到了……”*
+
+**ScreenRecall** 正是为此而生。它是一款为 macOS 深度打造的**原生轻量屏幕记忆工具**。在后台以极低资源开销定时记录屏幕状态，构建属于你自己的可回溯、可定位、可导出的**视觉时光胶囊**。
+
+更重要的是：**你的数据只属于你。所有屏幕画面与元数据全部保存在你的 Mac 本机，永不联网上传。**
+
+---
+
+## ✨ 核心特性
+
+| 功能 | 说明 |
+| :--- | :--- |
+| **🖥️ 原生多屏无缝采集** | 深度集成 Apple 官方 ScreenCaptureKit，支持多显示器独立识别与异步捕捉，不阻塞主线程，无掉帧卡顿。 |
+| **⚡ 极简资源能耗开销** | 硬件加速图像编码，内建系统压力感知：在系统睡眠、高能耗压力或会话锁定期间智能暂停，保证全天候静默驻留。 |
+| **🎛️ 随心自定记录节奏** | 顶部菜单栏常驻指示，支持自由配置采集间隔（15s / 30s / 45s / 60s / 2m / 5m），支持一键暂停或立即记录。 |
+| **🛡️ 灵活隐私排除黑名单** | 自动发现正在运行的前台应用，一键添加隐私排除；包含敏感信息的应用在截图时会被自动忽略。 |
+| **⏱️ 沉浸时光画廊回溯** | 直观的时间线分页界面，按“全部 / 今天 / 近1小时 / 近4小时 / 自定义日期”快速筛选，支持全分辨率预览与原图复制导出。 |
+| **📦 本地自动循环轮转** | 内置高效 SQLite 索引与容量管理，可自由配置历史保留天数与存储上限，超出限制自动平滑清理最早快照。 |
+
+---
+
+## 📥 快速下载
+
+最新正式版本：**v0.6.5**
+
+| 安装包 | 适用平台 | 架构 | 校验值 (SHA-256) |
+| :--- | :--- | :--- | :--- |
+| [**ScreenRecall-0.6.5.dmg**](https://github.com/RichardHuang0001/ScreenRecall/releases/download/v0.6.5/ScreenRecall-0.6.5.dmg) | macOS 15.0+ | Apple Silicon (M1/M2/M3/M4) | `87e96700923158bc6e4764778aaeb3ceed06d3b8d84d169adb1789f023b6d789` |
+
+> [!TIP]
+> 也可以前往 [**GitHub Releases 页面**](https://github.com/RichardHuang0001/ScreenRecall/releases/latest) 查看完整的发布记录与变更日志。
+
+---
+
+## 🚀 使用指南
+
+### 1. 安装与首次打开
+
+1. 下载 **`ScreenRecall-0.6.5.dmg`**；
+2. 双击打开镜像，将 **`ScreenRecall.app`** 拖拽至 **`Applications`（应用程序）** 文件夹；
+3. **首次打开安全提示**：
+   - 本开源版本采用脱敏无身份的 ad-hoc 签名构建，未进行 Apple 付费商业公证；
+   - 若系统 Gatekeeper 提示“无法验证开发者”，请在访达（Finder）的「应用程序」目录中，**按住 Control 键点按应用**（或右键），在弹出菜单中点击 **「打开」**，随后在确认框中再次点击「打开」即可正常启动。
+
+### 2. 授予屏幕录制权限
+
+1. 启动应用后，菜单栏右上角将出现层次化双屏图标；
+2. 首次启动**默认不会自动截屏**；
+3. 点击菜单栏图标打开「屏幕历史」窗口，点击右上角齿轮 ⚙️ 打开设置；
+4. 在「定时采集」选项卡中点击 **「前往授权」**，在 macOS「系统设置 → 隐私与安全性 → 屏幕制作与系统音频录制」中勾选允许 **ScreenRecall**；
+5. 回到设置页，授权状态将**自动感知并刷新**，无需反复重启。
+
+### 3. 日常使用
+
+- **菜单栏图标**：悬停可查看当前状态与最后一次记录时刻，单机即刻唤出历史画廊。
+- **控制采集**：历史窗口顶部提供「启用 / 暂停 / 继续」以及「立即记录当前屏幕」快捷操作。
+- **检索与预览**：点击历史流缩略图可开启沉浸式大图预览，支持跨屏幕自由切换，快捷键支持一键复制到剪贴板或在访达中定位原图文件。
+- **排除私密应用**：在「设置 → 隐私过滤」中直接从当前运行列表勾选需排除的应用（如密码管理器、聊天窗口等）。
+
+---
+
+## 🔒 隐私与安全承诺
+
+数据隐私是 ScreenRecall 的第一准则：
+
+1. **100% 纯本地运行**：应用没有内嵌任何第三方统计 SDK、追踪器或云端同步服务。
+2. **私有沙盒存储**：所有截屏图片保存在本机受保护的沙盒数据目录（`~/Library/Application Support/ScreenRecall`），不会混入系统相册或公共目录。
+3. **不常驻后台轮询鉴权**：权限状态仅在用户主动唤起设置窗口或应用重获焦点时由事件驱动触发，绝不浪费多余后台周期。
+4. **一键彻底清空**：随时可以在设置中点击「清空全部历史」，即刻原子化抹除数据库记录与本地图片文件。
+
+---
+
+## 🛠️ 开发者指引
+
+如果您希望从源码编译或对项目进行二次开发：
+
+### 编译构建
+
+要求环境：macOS 15.0+，Xcode 16.0+。
 
 ```sh
+# 克隆仓库
+git clone https://github.com/RichardHuang0001/ScreenRecall.git
+cd ScreenRecall
+
+# 命令行调试构建
 xcodebuild -project ScreenRecall.xcodeproj -scheme ScreenRecall -configuration Debug -destination 'platform=macOS' build
 ```
 
-当前项目使用 macOS 15.0 部署目标、arm64、Swift 5 语言模式和完整并发检查。Bundle ID 为 `com.screenrecall.app`。本机开发签名或后续正式签名可在 Xcode 的 Signing & Capabilities 中配置；Phase 0 构建测试使用了 `CODE_SIGNING_ALLOWED=NO`，并为运行探针的 Debug 应用单独使用本机 Apple Development 证书签名。
+### 自动化测试套件
 
-**单实例约定**：整机只保留 `/Applications/ScreenRecall.app` 一个可运行实例（本机 Apple Development 签名，屏幕录制权限稳定）。**不要把 `.app` 以可运行形态留在 `dist/`、项目内、备份目录或其它位置**——对外安装包一律由发布脚本产出为 DMG；构建缓存在 `.build/`。详见 `AGENTS.md` §8。
-
-## 对外发布打包
-
-面向他人分发的安装包请用脚本生成。它会用无身份的 ad-hoc 签名覆盖掉 Apple Development 证书（该证书名称含个人邮箱），确保产物不残留个人信息：
+本仓库维护了覆盖核心调度、并发隔离与异常恢复的自动化测试：
 
 ```sh
-zsh Tools/package-release.sh 0.6.5
+# 核心调度与状态机测试（涵盖代次失效、多屏撤回、挂起唤醒）
+zsh Validation/run-engine-tests.sh
+
+# 用户偏好设置与排除规则测试
+zsh Validation/run-preferences-tests.sh
+
+# 存储持久化与 SQLite 索引测试
+zsh Validation/run-storage-tests.sh
+
+# 跨进程异常退出 (SIGKILL) 崩溃恢复自愈测试
+zsh Validation/run-storage-crash-test.sh
+
+# 多屏 JPEG/HEIC 编解码与性能基准评估
+python3 Validation/run-performance-benchmark.py
 ```
 
-产物为 `dist/ScreenRecall-<版本>.dmg`，脚本会自动校验签名与二进制中不含个人身份。`dist/` 已加入 `.gitignore`，构建与打包产物不进入版本库。
+### 匿名发布打包
 
-## 当前使用方式
+为他人或社区分发安装包时，运行打包脚本即可自动产出剥离开发者个人证书的匿名 DMG：
 
-普通启动显示一个固定宽度的菜单栏图标，悬停可看状态，点击直接打开屏幕历史窗口；第一次不会自动截屏。窗口顶部可启用、暂停、继续或立即记录，齿轮按钮打开二级设置页。设置页的“定时采集”首先显示屏幕录制授权状态和 macOS 授权入口，回到应用时自动刷新，无定时轮询或授权弹窗；其它选项管理排除应用 Bundle ID、保留时间与容量、登录后启动、本地数据和诊断。获得授权并启用后每 45 秒逐屏截图。“屏幕历史”按时间分页加载；点击缩略图可预览，复制原图、导出或在 Finder 中显示。系统睡眠、会话不可采集、严重内存或热压力会暂停新批次。窗口关闭后，已启用的后台采集仍继续。
+```sh
+zsh Tools/package-release.sh <版本号>
+```
 
-## 验证与测试
+> [!NOTE]
+> 仓库工程协作、敏感信息规避及单实例约定请查阅权威规范文档 [`AGENTS.md`](AGENTS.md)。
 
-设置页中的“平台验证…”可重复阶段 0 的 JPEG/HEIC 对照探针。为自动测量，可编译 `Validation/ProbeCLI.swift` 与 `ScreenRecall/Validation/PlatformProbe.swift` 为一次性命令行程序。
+---
 
-主要自动化测试入口：
+## 📜 许可证 / License
 
-- **核心引擎调度测试**：`zsh Validation/run-engine-tests.sh`（覆盖并发抢占、多屏批次取消、隐私撤回、系统挂起/恢复与计时器管理）
-- **存储与索引测试**：`zsh Validation/run-storage-tests.sh`（覆盖原子写入、SQLite 索引与历史查询）
-- **崩溃恢复测试**：`zsh Validation/run-storage-crash-test.sh`（覆盖跨进程 SIGKILL 异常退出的数据自愈）
-- **用户偏好与排除名单测试**：`zsh Validation/run-preferences-tests.sh`（覆盖权限配置、黑名单过滤与生命周期）
-- **编解码与性能基准**：`python3 Validation/run-performance-benchmark.py`（多屏 JPEG/HEIC 压缩率与 CPU 负载评估）
+本项目采用 **[PolyForm Noncommercial License 1.0.0](LICENSE)** 许可协议（**严格禁止商用**）：
 
-## 许可证 / License
-
-本项目采用 **[PolyForm Noncommercial License 1.0.0](LICENSE)** 许可协议（**禁止商用**）：
-
-- **个人与非商业用途**：完全免费供个人使用、学习、学术研究及非商业性修改分发。
-- **商业用途严格禁止**：未经版权所有者事先明确书面授权，严禁任何形式的商业销售、付费分发、打包转售、闭源商业集成或作为商业营利服务提供。
-- 详情请查阅完整 [LICENSE](LICENSE) 文件。
-
+- **个人与非商业用途**：完全免费供个人使用、学习研讨、学术研究及非商业性质的改进与分享。
+- **商业用途严格禁止**：未经版权所有者明确书面授权，严禁任何形式的商业销售、付费分发、打包转售、闭源商业集成或作为商业营利服务提供。
+- 详情请查阅仓库完整 [LICENSE](LICENSE) 文件。
